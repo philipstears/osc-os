@@ -8,7 +8,7 @@ OVMF_VARS_IMAGE_PATH := _assets/ovmf/vars.fd
 SOURCE_DIR := kernel
 
 PLATFORM := x86_64-unknown-uefi
-BUIlD_TYPE := release
+BUILD_TYPE := release
 BUILD_DIR := $(SOURCE_DIR)/target/$(PLATFORM)/$(BUILD_TYPE)
 
 EFI_NAME=osc-os-kernel.efi
@@ -26,11 +26,14 @@ endif
 
 all: $(BUILD_DIR)/$(EFI_NAME)
 
-run:
+run: all
 	qemu-system-x86_64 -cpu qemu64 \
+		-serial stdio \
+		-net none \
+		-m 1024M \
 		-drive if=pflash,format=raw,unit=0,file=$(OVMF_CODE_IMAGE_PATH),readonly=on \
 		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
-		-net none
+		-drive format=raw,file=fat:rw:$(BUILD_DIR)
 
 $(BUILD_DIR)/$(EFI_NAME): $(SOURCE_FILES)
 	cd $(SOURCE_DIR) && cargo build -Z build-std=core --target $(PLATFORM) $(CARGO_PROFILE_ARG)
