@@ -1,5 +1,6 @@
 .PHONY: \
 	all \
+	clean \
 	run
 
 OVMF_CODE_IMAGE_PATH := _assets/ovmf/code.fd
@@ -29,6 +30,9 @@ endif
 
 all: $(BUILD_DIR)/$(EFI_NAME)
 
+clean:
+	rm -rf $(BUILD_DIR)
+
 run: $(BUILD_DIR)/$(DISK_NAME)
 	qemu-system-x86_64 -cpu qemu64 \
 		-serial stdio \
@@ -44,7 +48,9 @@ $(BUILD_DIR)/$(EFI_NAME): $(SOURCE_FILES)
 $(BUILD_DIR)/$(PART_NAME): $(BUILD_DIR)/$(EFI_NAME)
 	dd if=/dev/zero of=$@ bs=512 count=91669
 	mformat -i $@ -h 32 -t 32 -n 64 -c 1
-	mcopy -i $@ $< ::
+	mmd -i $@ ::EFI
+	mmd -i $@ ::EFI/BOOT
+	mcopy -i $@ $< ::EFI/BOOT/BOOTx64.EFI
 
 $(BUILD_DIR)/$(DISK_NAME): $(BUILD_DIR)/$(PART_NAME)
 	dd if=/dev/zero of=$@ bs=512 count=93750
