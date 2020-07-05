@@ -1,0 +1,10 @@
+= OSC OS
+
+== Introduction
+OSC OS is a test bench for developing and testing the components from the https://github.com/philipstears/osc[Operating System Components] project.
+
+It isn't intended to be a fully-fledged operating system in its own right.
+
+
+== Building & Running
+TODO
