@@ -12,11 +12,14 @@ BUILD_TYPE := release
 BUILD_DIR := $(SOURCE_DIR)/target/$(PLATFORM)/$(BUILD_TYPE)
 
 EFI_NAME=osc-os-kernel.efi
+PART_NAME=osc-os.part
+DISK_NAME=osc-os.disk
 
 SOURCE_FILES := \
 	Makefile \
+	$(SOURCE_DIR)/Cargo.lock \
 	$(SOURCE_DIR)/Cargo.toml \
-	$(SOURCE_DIR)/src/main.rs
+	$(shell find $(SOURCE_DIR)/src/ -type f -name "*.rs")
 
 ifeq ($(BUILD_TYPE),release)
 	CARGO_PROFILE_ARG := "--release"
@@ -26,15 +29,28 @@ endif
 
 all: $(BUILD_DIR)/$(EFI_NAME)
 
-run: all
+run: $(BUILD_DIR)/$(DISK_NAME)
 	qemu-system-x86_64 -cpu qemu64 \
 		-serial stdio \
 		-net none \
 		-m 1024M \
 		-drive if=pflash,format=raw,unit=0,file=$(OVMF_CODE_IMAGE_PATH),readonly=on \
 		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
-		-drive format=raw,file=fat:rw:$(BUILD_DIR)
+		-drive if=ide,file=$<
 
 $(BUILD_DIR)/$(EFI_NAME): $(SOURCE_FILES)
 	cd $(SOURCE_DIR) && cargo build -Z build-std=core --target $(PLATFORM) $(CARGO_PROFILE_ARG)
+
+$(BUILD_DIR)/$(PART_NAME): $(BUILD_DIR)/$(EFI_NAME)
+	dd if=/dev/zero of=$@ bs=512 count=91669
+	mformat -i $@ -h 32 -t 32 -n 64 -c 1
+	mcopy -i $@ $< ::
+
+$(BUILD_DIR)/$(DISK_NAME): $(BUILD_DIR)/$(PART_NAME)
+	dd if=/dev/zero of=$@ bs=512 count=93750
+	parted $@ -s -a minimal mklabel gpt
+	parted $@ -s -a minimal mkpart EFI FAT16 2048s 93716s
+	parted $@ -s -a minimal toggle 1 boot
+	dd if=$< of=$@ bs=512 count=91669 seek=2048 conv=notrunc
+
 

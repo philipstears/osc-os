@@ -44,8 +44,9 @@ in
       # OVMF firmware download
       python38Packages.rpm
 
-      # Cross compilation
-      cargo-xbuild
+      # Image building
+      mtools
+      parted
     ];
 
     RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/src";
