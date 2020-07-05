@@ -13,7 +13,7 @@ let
     };
 
   rustBase =
-    (nixPackages.rustChannelOf { date = "2020-06-01"; channel = "nightly"; }).rust;
+    (nixPackages.rustChannelOf { date = "2020-07-04"; channel = "nightly"; }).rust;
 
   rust =
     (rustBase.override {
@@ -43,6 +43,9 @@ in
 
       # OVMF firmware download
       python38Packages.rpm
+
+      # Cross compilation
+      cargo-xbuild
     ];
 
     RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/src";
