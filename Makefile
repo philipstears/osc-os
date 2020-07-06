@@ -1,7 +1,10 @@
 .PHONY: \
 	all \
 	clean \
-	run
+	run \
+	disk \
+	part \
+	efi
 
 OVMF_CODE_IMAGE_PATH := _assets/ovmf/code.fd
 OVMF_VARS_IMAGE_PATH := _assets/ovmf/vars.fd
@@ -40,10 +43,14 @@ run: $(BUILD_DIR)/$(DISK_NAME)
 		-m 1024M \
 		-drive if=pflash,format=raw,unit=0,file=$(OVMF_CODE_IMAGE_PATH),readonly=on \
 		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
-		-drive if=ide,file=$<
+		-drive if=ide,format=raw,file=$<
+
+disk: $(BUILD_DIR)/$(DISK_NAME)
+part: $(BUILD_DIR)/$(PART_NAME)
+efi: $(BUILD_DIR)/$(EFI_NAME)
 
 $(BUILD_DIR)/$(EFI_NAME): $(SOURCE_FILES)
-	cd $(SOURCE_DIR) && cargo build -Z build-std=core --target $(PLATFORM) $(CARGO_PROFILE_ARG)
+	cd $(SOURCE_DIR) && cargo build -Z build-std=core,alloc --target $(PLATFORM) $(CARGO_PROFILE_ARG)
 
 $(BUILD_DIR)/$(PART_NAME): $(BUILD_DIR)/$(EFI_NAME)
 	dd if=/dev/zero of=$@ bs=512 count=91669
