@@ -4,7 +4,8 @@
 	run \
 	disk \
 	part \
-	efi
+	stub \
+	stub-combined
 
 OVMF_CODE_IMAGE_PATH := _assets/ovmf/code.fd
 OVMF_VARS_IMAGE_PATH := _assets/ovmf/vars.fd
@@ -15,11 +16,14 @@ PLATFORM := x86_64-unknown-uefi
 BUILD_TYPE := release
 BUILD_DIR := $(SOURCE_DIR)/target/$(PLATFORM)/$(BUILD_TYPE)
 
-EFI_NAME=osc-os-boot-stub.efi
-PART_NAME=osc-os.part
-DISK_NAME=osc-os.disk
+KERNEL_NAME := osc-os-kernel.elf
 
-SOURCE_FILES := \
+STUB_NAME := osc-os-boot-stub.efi
+STUB_COMBINED_NAME := osc-os-boot-stub-combined.efi
+PART_NAME := osc-os.part
+DISK_NAME := osc-os.disk
+
+STUB_SOURCE_FILES := \
 	Makefile \
 	$(SOURCE_DIR)/Cargo.lock \
 	$(SOURCE_DIR)/Cargo.toml \
@@ -31,7 +35,7 @@ else
 	CARGO_PROFILE_ARG :=
 endif
 
-all: $(BUILD_DIR)/$(EFI_NAME)
+all: $(BUILD_DIR)/$(STUB_NAME)
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -45,14 +49,29 @@ run: $(BUILD_DIR)/$(DISK_NAME)
 		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
 		-drive if=ide,format=raw,file=$<
 
+# ------------------------------------------------------------------------------
+# Kernel Build
+# ------------------------------------------------------------------------------
+kernel: $(BUILD_DIR)/$(KERNEL_NAME)
+
+$(BUILD_DIR)/$(KERNEL_NAME): Makefile
+	printf "Hello, World\n" > $@
+
+# ------------------------------------------------------------------------------
+# Boot Stub Build
+# ------------------------------------------------------------------------------
 disk: $(BUILD_DIR)/$(DISK_NAME)
 part: $(BUILD_DIR)/$(PART_NAME)
-efi: $(BUILD_DIR)/$(EFI_NAME)
+stub: $(BUILD_DIR)/$(STUB_NAME)
+stub-combined: $(BUILD_DIR)/$(STUB_COMBINED_NAME)
 
-$(BUILD_DIR)/$(EFI_NAME): $(SOURCE_FILES)
+$(BUILD_DIR)/$(STUB_NAME): $(STUB_SOURCE_FILES)
 	cd $(SOURCE_DIR) && cargo build -Z build-std=core,alloc --target $(PLATFORM) $(CARGO_PROFILE_ARG)
 
-$(BUILD_DIR)/$(PART_NAME): $(BUILD_DIR)/$(EFI_NAME)
+$(BUILD_DIR)/$(STUB_COMBINED_NAME): $(BUILD_DIR)/$(STUB_NAME) $(BUILD_DIR)/$(KERNEL_NAME)
+	cat $^ > $@
+
+$(BUILD_DIR)/$(PART_NAME): $(BUILD_DIR)/$(STUB_COMBINED_NAME)
 	dd if=/dev/zero of=$@ bs=512 count=91669
 	mformat -i $@ -h 32 -t 32 -n 64 -c 1
 	mmd -i $@ ::EFI
