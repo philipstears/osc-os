@@ -9,13 +9,13 @@
 OVMF_CODE_IMAGE_PATH := _assets/ovmf/code.fd
 OVMF_VARS_IMAGE_PATH := _assets/ovmf/vars.fd
 
-SOURCE_DIR := kernel
+SOURCE_DIR := boot-stub
 
 PLATFORM := x86_64-unknown-uefi
 BUILD_TYPE := release
 BUILD_DIR := $(SOURCE_DIR)/target/$(PLATFORM)/$(BUILD_TYPE)
 
-EFI_NAME=osc-os-kernel.efi
+EFI_NAME=osc-os-boot-stub.efi
 PART_NAME=osc-os.part
 DISK_NAME=osc-os.disk
 

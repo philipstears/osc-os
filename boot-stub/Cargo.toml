@@ -1,5 +1,5 @@
 [package]
-name = "osc-os-kernel"
+name = "osc-os-boot-stub"
 version = "0.1.0"
 authors = ["philipstears <philip@philipstears.com>"]
 edition = "2018"
