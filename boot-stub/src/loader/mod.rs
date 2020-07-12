@@ -194,7 +194,7 @@ impl Loader<Prepare> {
 
 fn print_string(st: &SystemTable<Boot>, string: impl AsRef<str>) {
     let string_bytes = string.as_ref().as_bytes();
-    let mut buf = [0u16; 128];
+    let mut buf = [0u16; 64];
 
     for i in 0..string_bytes.len() {
         buf[i] = string_bytes[i] as u16;
