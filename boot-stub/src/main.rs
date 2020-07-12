@@ -18,14 +18,14 @@ use core::panic::PanicInfo;
 
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> ! {
+    print_formatted_string(&st, "UEFI Boot Stub Entered\r\n");
+
     // Get the estimated map size
     let map_size = st.boot_services().memory_map_size();
 
     unsafe {
         uefi::alloc::init(st.boot_services());
     }
-
-    st.stdout().reset(false).unwrap_success();
 
     let image_info_cell = st
         .boot_services()
@@ -42,7 +42,9 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> 
     let sfs = unsafe { &mut *sfs_cell.get() };
     let mut dir = sfs.open_volume().unwrap_success();
 
-    let filename = "EFI\\BOOT\\BOOTx64.EFI";
+    print_formatted_string(&st, "Reading file\r\n");
+
+    let filename = "OSCOS\\KERNEL.BIN";
     let mut file = unsafe {
         RegularFile::new(
             dir.open(filename, FileMode::Read, FileAttribute::empty())
@@ -50,14 +52,16 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> 
         )
     };
 
+    print_formatted_string(&st, "Read file\r\n");
+
     let mut info_buffer = vec![0u8; 4096];
     let file_info = file
         .get_info::<FileInfo>(info_buffer.as_mut())
         .unwrap_success();
     let file_size = file_info.file_size();
 
-    let mut data = [0u8; 13];
-    file.set_position(file_size - (data.len() as u64));
+    let mut data = vec![0u8; file_size as usize];
+    //file.set_position(file_size - (data.len() as u64));
     file.read(&mut data);
 
     let it = unsafe { core::str::from_utf8_unchecked(&data) };
