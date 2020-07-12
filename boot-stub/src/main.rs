@@ -8,6 +8,7 @@ extern crate rlibc;
 
 use self::alloc::format;
 use self::alloc::vec;
+use self::alloc::vec::Vec;
 
 use uefi::prelude::*;
 use uefi::proto::loaded_image::*;
@@ -26,18 +27,56 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
 
 enum BootError {
     RetrieveImageInfoFailed(Status),
+    RetrieveSimpleFileSystemFailed(Status),
+    RetrieveVolumeFailed(Status),
+    OpenKernelFailed(Status),
+    StatKernelFailed(Status),
+    ReadKernelFailed(Status),
 }
 
-struct Loader {
+struct PreparedKernel {
+    loaded_image: Vec<u8>,
+}
+
+struct Prepare;
+
+struct Ready {
+    kernel: PreparedKernel,
+}
+
+struct Loader<Phase> {
     image_handle: Handle,
     system_table: SystemTable<Boot>,
+    phase_data: Phase,
 }
 
-impl Loader {
+impl Loader<Ready> {
+    fn transfer_to_kernel(self) -> ! {
+        // Get the estimated map size
+        let map_size = self.system_table.boot_services().memory_map_size();
+        let _map_dest = vec![0u8; map_size << 2];
+
+        let kernel_str =
+            unsafe { core::str::from_utf8_unchecked(self.phase_data.kernel.loaded_image.as_ref()) };
+
+        print_string(
+            &self.system_table,
+            format!(
+                "Would run kernel with mem map of size {}: {}",
+                map_size, kernel_str
+            ),
+        );
+
+        loop {}
+    }
+}
+
+impl Loader<Prepare> {
     fn new(image_handle: Handle, system_table: SystemTable<Boot>) -> Self {
         Self {
             image_handle,
             system_table,
+            phase_data: Prepare,
         }
     }
 
@@ -50,19 +89,69 @@ impl Loader {
             uefi::alloc::init(self.system_table.boot_services());
         }
 
-        self.boot();
+        match self.prepare() {
+            Ok(kernel) => {
+                self.print_string("Preparation succeeded, transferring to kernel.\r\n");
+
+                let ready = Loader {
+                    image_handle: self.image_handle,
+                    system_table: self.system_table,
+                    phase_data: Ready { kernel },
+                };
+
+                ready.transfer_to_kernel();
+            }
+
+            Err(error) => {
+                match error {
+                    BootError::RetrieveImageInfoFailed(Status(status_code)) => {
+                        self.print_string(format!(
+                            "Failed to get boot image information ({:#x})\r\n",
+                            status_code
+                        ))
+                    }
+
+                    BootError::RetrieveSimpleFileSystemFailed(Status(status_code)) => self
+                        .print_string(format!(
+                            "Failed to get access to boot file system ({:#x})\r\n",
+                            status_code
+                        )),
+
+                    BootError::RetrieveVolumeFailed(Status(status_code)) => {
+                        self.print_string(format!(
+                            "Failed to get access to boot volume ({:#x})\r\n",
+                            status_code
+                        ))
+                    }
+
+                    BootError::OpenKernelFailed(Status(status_code)) => self.print_string(format!(
+                        "Failed to get open the kernel file for reading ({:#x})\r\n",
+                        status_code
+                    )),
+
+                    BootError::StatKernelFailed(Status(status_code)) => self.print_string(format!(
+                        "Failed to get read information about the kernel file ({:#x})\r\n",
+                        status_code
+                    )),
+
+                    BootError::ReadKernelFailed(Status(status_code)) => self.print_string(format!(
+                        "Failed to read the kernel file into memory ({:#x})\r\n",
+                        status_code
+                    )),
+                }
+
+                self.exit();
+            }
+        }
     }
 
-    fn boot(self) -> ! {
-        let image_info_cell = match self
+    fn prepare(&self) -> Result<PreparedKernel, BootError> {
+        let image_info_cell = self
             .system_table
             .boot_services()
             .handle_protocol::<LoadedImage>(self.image_handle)
             .warning_as_error()
-        {
-            Ok(result) => result,
-            Err(err) => self.exit_with_error(BootError::RetrieveImageInfoFailed(err.status())),
-        };
+            .map_err(|err| BootError::RetrieveImageInfoFailed(err.status()))?;
 
         let image_info = unsafe { &mut *image_info_cell.get() };
 
@@ -70,68 +159,42 @@ impl Loader {
             .system_table
             .boot_services()
             .handle_protocol::<SimpleFileSystem>(image_info.device_handle())
-            .unwrap_success();
+            .warning_as_error()
+            .map_err(|err| BootError::RetrieveSimpleFileSystemFailed(err.status()))?;
 
         let sfs = unsafe { &mut *sfs_cell.get() };
-        let mut dir = sfs.open_volume().unwrap_success();
 
-        self.print_string("Reading file\r\n");
+        let mut volume = sfs
+            .open_volume()
+            .warning_as_error()
+            .map_err(|err| BootError::RetrieveVolumeFailed(err.status()))?;
 
-        let filename = KERNEL_LOCATION;
-        let mut file = unsafe {
-            RegularFile::new(
-                dir.open(filename, FileMode::Read, FileAttribute::empty())
-                    .unwrap_success(),
-            )
-        };
+        let file = volume
+            .open(KERNEL_LOCATION, FileMode::Read, FileAttribute::empty())
+            .warning_as_error()
+            .map_err(|err| BootError::OpenKernelFailed(err.status()))?;
 
-        self.print_string("Read file\r\n");
+        let mut file = unsafe { RegularFile::new(file) };
 
         let mut info_buffer = vec![0u8; 4096];
+
         let file_info = file
             .get_info::<FileInfo>(info_buffer.as_mut())
-            .unwrap_success();
-        let file_size = file_info.file_size();
+            .warning_as_error()
+            .map_err(|err| BootError::StatKernelFailed(err.status()))?;
 
-        let mut data = vec![0u8; file_size as usize];
-        //file.set_position(file_size - (data.len() as u64));
-        file.read(&mut data);
+        let mut data = {
+            let file_size = file_info.file_size();
+            vec![0u8; file_size as usize]
+        };
 
-        let it = unsafe { core::str::from_utf8_unchecked(&data) };
-        self.print_string(format!("Suffix: {} ", it));
+        file.read(&mut data)
+            .warning_as_error()
+            .map_err(|err| BootError::ReadKernelFailed(err.status()))?;
 
-        let image_base = image_info.image_base();
-        let image_base_ptr = image_base as *const u8;
+        let kernel = PreparedKernel { loaded_image: data };
 
-        let image_size = image_info.image_size() as usize;
-
-        let image = unsafe { core::slice::from_raw_parts(image_base_ptr, image_size) };
-        let mut found = false;
-
-        // Get the estimated map size
-        let map_size = self.system_table.boot_services().memory_map_size();
-
-        let string = format!(
-            "Memory Map Size: {}\r\nSig: {:#x} {:#x}\r\n",
-            map_size, image[0], image[1]
-        );
-
-        self.print_string(string);
-
-        // We should never get here, the kernel should never return, there's no
-        // safe way to handle it if it does
-        loop {}
-    }
-
-    fn exit_with_error(self, error: BootError) -> ! {
-        match error {
-            BootError::RetrieveImageInfoFailed(Status(status_code)) => self.print_string(format!(
-                "Failed to get boot image information ({:#x})",
-                status_code
-            )),
-        }
-
-        self.exit();
+        Ok(kernel)
     }
 
     fn exit(self) -> ! {
