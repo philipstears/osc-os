@@ -6,9 +6,12 @@ extern crate alloc;
 extern crate rlibc;
 
 use self::alloc::format;
+use self::alloc::vec;
 
 use uefi::prelude::*;
 use uefi::proto::loaded_image::*;
+use uefi::proto::media::file::*;
+use uefi::proto::media::fs::*;
 use uefi::CStr16;
 
 use core::panic::PanicInfo;
@@ -31,6 +34,35 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> 
 
     let image_info = unsafe { &mut *image_info_cell.get() };
 
+    let sfs_cell = st
+        .boot_services()
+        .handle_protocol::<SimpleFileSystem>(image_info.device_handle())
+        .unwrap_success();
+
+    let sfs = unsafe { &mut *sfs_cell.get() };
+    let mut dir = sfs.open_volume().unwrap_success();
+
+    let filename = "EFI\\BOOT\\BOOTx64.EFI";
+    let mut file = unsafe {
+        RegularFile::new(
+            dir.open(filename, FileMode::Read, FileAttribute::empty())
+                .unwrap_success(),
+        )
+    };
+
+    let mut info_buffer = vec![0u8; 4096];
+    let file_info = file
+        .get_info::<FileInfo>(info_buffer.as_mut())
+        .unwrap_success();
+    let file_size = file_info.file_size();
+
+    let mut data = [0u8; 13];
+    file.set_position(file_size - (data.len() as u64));
+    file.read(&mut data);
+
+    let it = unsafe { core::str::from_utf8_unchecked(&data) };
+    print_formatted_string(&st, &format!("Suffix: {} ", it));
+
     let image_base = image_info.image_base();
     let image_base_ptr = image_base as *const u8;
 
@@ -39,30 +71,9 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> 
     let image = unsafe { core::slice::from_raw_parts(image_base_ptr, image_size) };
     let mut found = false;
 
-    for search_index in 0..(image.len() - 3) {
-        if image[search_index] == b'H' && image[search_index + 1] == b'e' {
-            let it = unsafe {
-                core::str::from_utf8_unchecked(&image[search_index..(search_index + 10)])
-            };
-            print_formatted_string(&st, &format!("Found it? {}\r\n", it));
-            found = true;
-            break;
-        }
-    }
-
-    if !found {
-        print_formatted_string(&st, "Failed\r\n");
-    }
-
-    let data_start = 29184usize;
-    let data_length = 12usize;
-
-    let data = &image[data_start..(data_start + data_length)];
-    let data_str = unsafe { core::str::from_utf8_unchecked(data) };
-
     let string = format!(
-        "Memory Map Size: {}\r\nSig: {:#x} {:#x}\r\nData: {}",
-        map_size, image[0], image[1], data_str,
+        "Memory Map Size: {}\r\nSig: {:#x} {:#x}\r\n",
+        map_size, image[0], image[1]
     );
 
     print_formatted_string(&st, &string);
