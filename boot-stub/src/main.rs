@@ -16,15 +16,12 @@ mod arch;
 mod loader;
 use loader::*;
 
+use arch::x86_64::serial;
+
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<Boot>) -> ! {
-    let com1 = unsafe { arch::x86_64::Port::<u8>::new(0x3F8) };
-    com1.write(b'o');
-    com1.write(b's');
-    com1.write(b'c');
-    com1.write(b'-');
-    com1.write(b'o');
-    com1.write(b's');
+    let com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
+    com1.write(b"Hello from osc-os!\r\n");
     Loader::new(image_handle, system_table).run();
 }
 

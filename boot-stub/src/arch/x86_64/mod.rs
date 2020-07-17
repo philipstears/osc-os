@@ -1,4 +1,5 @@
 //! Provides access to 64-bit x86 specific
 //! functionality.
-mod port;
-pub use port::*;
+
+pub mod port;
+pub mod serial;
