@@ -1,3 +1,4 @@
+use super::paging::LinearAddress;
 use super::paging::PhysicalAddress;
 
 #[repr(packed)]
@@ -97,20 +98,27 @@ impl IDTEntry {
         }
     }
 
-    pub fn offset(&self) -> u64 {
-        u64::from(self.offset_high) << 32
+    pub fn selector(&self) -> u16 {
+        self.selector
+    }
+
+    pub fn offset(&self) -> LinearAddress {
+        let offset = u64::from(self.offset_high) << 32
             | u64::from(self.offset_middle) << 16
-            | u64::from(self.offset_lower)
+            | u64::from(self.offset_lower);
+
+        unsafe { LinearAddress::from_raw_unchecked(offset) }
     }
 }
 
 impl core::fmt::Debug for IDTEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("IDTEntry")
-            .field("entry_type", &self.entry_type())
-            .field("present", &self.is_present())
-            .field("dpl", &self.dpl())
-            .field("offset", &format_args!("{:#018X}", self.offset()))
+        f.debug_tuple("IDTEntry")
+            .field(&self.entry_type())
+            .field(&self.is_present())
+            .field(&self.dpl())
+            .field(&format_args!("{:#06X}", self.selector()))
+            .field(&self.offset())
             .finish()
     }
 }

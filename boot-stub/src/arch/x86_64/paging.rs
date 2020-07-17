@@ -3,6 +3,51 @@
 use bitflags::bitflags;
 use core::ops::{Index, IndexMut};
 
+#[derive(Copy, Clone)]
+pub struct LinearAddress(u64);
+
+impl LinearAddress {
+    pub unsafe fn from_raw_unchecked(raw_linear_address: u64) -> Self {
+        Self(raw_linear_address)
+    }
+
+    pub fn offset(&self) -> u16 {
+        (self.0 & 0b1111_1111_1111) as u16
+    }
+
+    pub fn level1(&self) -> u16 {
+        ((self.0 >> 12) & 0b1_1111_1111) as u16
+    }
+
+    pub fn level2(&self) -> u16 {
+        ((self.0 >> 21) & 0b1_1111_1111) as u16
+    }
+
+    pub fn level3(&self) -> u16 {
+        ((self.0 >> 30) & 0b1_1111_1111) as u16
+    }
+
+    pub fn level4(&self) -> u16 {
+        ((self.0 >> 39) & 0b1_1111_1111) as u16
+    }
+
+    pub fn to_raw(&self) -> u64 {
+        self.0
+    }
+}
+
+impl core::fmt::Debug for LinearAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("LinearAddress")
+            .field("level4", &format_args!("{}", self.level4()))
+            .field("level3", &format_args!("{}", self.level3()))
+            .field("level2", &format_args!("{}", self.level2()))
+            .field("level1", &format_args!("{}", self.level1()))
+            .field("offset", &format_args!("{:#05X}", self.offset()))
+            .finish()
+    }
+}
+
 /// Provides a type for physical addresses.
 ///
 /// On the x86-64 architecture, physical addresses are fundamentally
