@@ -9,6 +9,7 @@ extern crate rlibc;
 
 use uefi::prelude::*;
 
+use core::fmt::Write;
 use core::panic::PanicInfo;
 
 mod arch;
@@ -20,8 +21,8 @@ use arch::x86_64::serial;
 
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<Boot>) -> ! {
-    let com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
-    com1.write(b"Hello from osc-os!\r\n");
+    let mut com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
+    writeln!(com1, "Hello from osc-os!");
     Loader::new(image_handle, system_table).run();
 }
 

@@ -1,6 +1,7 @@
 //! Provides serial port capabilities.
 
 use super::port::{Port, PortAddress};
+use core::fmt;
 
 /// The standard base IO address of the first COM port. This is
 /// generally reliable.
@@ -70,8 +71,14 @@ impl SerialPort {
         }
     }
 
+    /// Writes the given string to the serial port. Note, this
+    /// just writes the individual bytes making up the string.
+    pub fn write_string(&self, string: &str) {
+        self.write_bytes(string.as_bytes());
+    }
+
     /// Writes the given slice of bytes to the serial port.
-    pub fn write(&self, bytes: &[u8]) {
+    pub fn write_bytes(&self, bytes: &[u8]) {
         for b in bytes {
             self.data_port.write(*b);
         }
@@ -80,5 +87,12 @@ impl SerialPort {
     /// Writes the given byte to the serial port.
     pub fn write_byte(&self, byte: u8) {
         self.data_port.write(byte);
+    }
+}
+
+impl fmt::Write for SerialPort {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
     }
 }
