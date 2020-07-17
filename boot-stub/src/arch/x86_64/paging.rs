@@ -22,6 +22,7 @@ use core::ops::{Index, IndexMut};
 /// mapping from physical to linear.
 ///
 /// Other possibilities such as recursive page table mapping also exist.
+#[derive(Copy, Clone)]
 pub struct PhysicalAddress(u64);
 
 impl PhysicalAddress {
