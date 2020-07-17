@@ -19,6 +19,7 @@ mod arch;
 mod loader;
 use loader::*;
 
+use arch::x86_64::interrupts::*;
 use arch::x86_64::paging::*;
 use arch::x86_64::serial;
 
@@ -52,12 +53,15 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         writeln!(com1, "PT entry {} is {:?}", index, entry).unwrap();
     }
 
-    writeln!(
-        com1,
-        "IDTR: {:?}",
-        arch::x86_64::interrupts::IDTRValue::read()
-    )
-    .unwrap();
+    let idtr_value = arch::x86_64::interrupts::IDTRValue::read();
+
+    writeln!(com1, "IDTR: {:?}", idtr_value).unwrap();
+
+    let idtr_ptr = idtr_value.address().to_raw() as *const IDTEntry;
+    let idtr_ref = unsafe { &*idtr_ptr };
+    let entry_count = (usize::from(idtr_value.limit()) + 1) / core::mem::size_of::<IDTEntry>();
+
+    writeln!(com1, "IDT entry is {:?}", idtr_ref).unwrap();
 
     Loader::new(image_handle, system_table).run();
 }
