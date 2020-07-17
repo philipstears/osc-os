@@ -113,12 +113,12 @@ impl IDTEntry {
 
 impl core::fmt::Debug for IDTEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("IDTEntry")
-            .field(&self.entry_type())
-            .field(&self.is_present())
-            .field(&self.dpl())
-            .field(&format_args!("{:#06X}", self.selector()))
-            .field(&self.offset())
+        f.debug_struct("IDTEntry")
+            .field("entry_type", &self.entry_type())
+            .field("present", &self.is_present())
+            .field("dpl", &self.dpl())
+            .field("selector", &format_args!("{:#06X}", self.selector()))
+            .field("offset", &self.offset())
             .finish()
     }
 }

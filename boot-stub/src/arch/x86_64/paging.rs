@@ -38,12 +38,12 @@ impl LinearAddress {
 
 impl core::fmt::Debug for LinearAddress {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("LinearAddress")
-            .field("level4", &format_args!("{}", self.level4()))
-            .field("level3", &format_args!("{}", self.level3()))
-            .field("level2", &format_args!("{}", self.level2()))
-            .field("level1", &format_args!("{}", self.level1()))
-            .field("offset", &format_args!("{:#05X}", self.offset()))
+        f.debug_tuple("LinearAddress")
+            .field(&format_args!("{}", self.level4()))
+            .field(&format_args!("{}", self.level3()))
+            .field(&format_args!("{}", self.level2()))
+            .field(&format_args!("{}", self.level1()))
+            .field(&format_args!("{:#05X}", self.offset()))
             .finish()
     }
 }
