@@ -52,6 +52,13 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         writeln!(com1, "PT entry {} is {:?}", index, entry).unwrap();
     }
 
+    writeln!(
+        com1,
+        "IDTR: {:?}",
+        arch::x86_64::interrupts::IDTRValue::read()
+    )
+    .unwrap();
+
     Loader::new(image_handle, system_table).run();
 }
 
