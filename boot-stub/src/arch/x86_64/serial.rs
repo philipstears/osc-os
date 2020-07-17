@@ -1,4 +1,5 @@
-///! Provides serial port capabilities.
+//! Provides serial port capabilities.
+
 use super::port::{Port, PortAddress};
 
 /// The standard base IO address of the first COM port. This is
