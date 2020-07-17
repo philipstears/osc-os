@@ -68,6 +68,11 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         idtr_ptr = unsafe { idtr_ptr.offset(1) };
     }
 
+    let gdtr_value = arch::x86_64::gdt::GDTRValue::read();
+    let gdte_count = (usize::from(gdtr_value.limit()) + 1) / 8;
+
+    writeln!(com1, "GDTR: {:?}, Count: {}", gdtr_value, gdte_count).unwrap();
+
     Loader::new(image_handle, system_table).run();
 }
 
