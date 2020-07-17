@@ -76,6 +76,15 @@ run: $(MAIN_BUILD_DIR)/$(DISK_NAME)
 		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
 		-drive if=ide,format=raw,file=$<
 
+run-with-monitor: $(MAIN_BUILD_DIR)/$(DISK_NAME)
+	qemu-system-x86_64 -cpu qemu64 \
+		-monitor stdio \
+		-net none \
+		-m 1024M \
+		-drive if=pflash,format=raw,unit=0,file=$(OVMF_CODE_IMAGE_PATH),readonly=on \
+		-drive if=pflash,format=raw,unit=1,file=$(OVMF_VARS_IMAGE_PATH) \
+		-drive if=ide,format=raw,file=$<
+
 $(MAIN_BUILD_DIR)/$(PART_NAME): $(STUB_BUILD_DIR)/$(STUB_NAME) $(KERNEL_BUILD_DIR)/$(KERNEL_NAME)
 	mkdir -p $(MAIN_BUILD_DIR)
 	dd if=/dev/zero of=$@ bs=512 count=91669

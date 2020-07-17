@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 rlibc = "1.0.0"
 uefi = { version = "0.4.6", features = [ "alloc" ] }
+bitflags = "1.2.1"
 
 [patch.crates-io]
 uefi = { path = "../../../third/uefi-rs" }

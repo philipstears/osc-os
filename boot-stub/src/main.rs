@@ -4,6 +4,7 @@
 #![feature(abi_efiapi)]
 #![feature(never_type)]
 #![feature(asm)]
+#![allow(dead_code)]
 extern crate alloc;
 extern crate rlibc;
 
@@ -23,12 +24,24 @@ use arch::x86_64::serial;
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<Boot>) -> ! {
     let mut com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
+
     writeln!(
         com1,
         "{}Hello from osc-os!{}",
         ansi::Color::from_fg_and_bg(ansi::StandardColor::Black, ansi::StandardColor::White),
         ansi::Reset
-    );
+    )
+    .unwrap();
+
+    let (flags, pml4) = arch::x86_64::cr4::read();
+
+    writeln!(
+        com1,
+        "PML4 Location according to CR3 (with flags {:#X}): {:#X}",
+        flags, pml4
+    )
+    .unwrap();
+
     Loader::new(image_handle, system_table).run();
 }
 
