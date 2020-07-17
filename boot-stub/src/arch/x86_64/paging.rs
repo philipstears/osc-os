@@ -1,6 +1,7 @@
 //! Provides facilities for working with page tables.
 
 use bitflags::bitflags;
+use core::ops::{Index, IndexMut};
 
 /// Provides a type for physical addresses.
 ///
@@ -139,7 +140,22 @@ impl core::fmt::Debug for PageTableEntry {
     }
 }
 
+/// Provides support for inspecting and modifying a page table.
 #[repr(C, align(4096))]
 pub struct PageTable {
     entries: [PageTableEntry; 512],
+}
+
+impl Index<usize> for PageTable {
+    type Output = PageTableEntry;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.entries[index]
+    }
+}
+
+impl IndexMut<usize> for PageTable {
+    fn index_mut(&mut self, index: usize) -> &mut PageTableEntry {
+        &mut self.entries[index]
+    }
 }

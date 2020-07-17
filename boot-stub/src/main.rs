@@ -19,6 +19,7 @@ mod arch;
 mod loader;
 use loader::*;
 
+use arch::x86_64::paging::*;
 use arch::x86_64::serial;
 
 #[no_mangle]
@@ -41,6 +42,14 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         flags, pml4
     )
     .unwrap();
+
+    let pt_ptr = pml4.to_raw() as *const PageTable;
+    let pt_ref = unsafe { &*pt_ptr };
+
+    for index in 0..16 {
+        let entry = &pt_ref[index];
+        writeln!(com1, "PT entry {} is {:?}", index, entry).unwrap();
+    }
 
     Loader::new(image_handle, system_table).run();
 }
