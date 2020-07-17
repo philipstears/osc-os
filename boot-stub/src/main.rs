@@ -57,11 +57,16 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
 
     writeln!(com1, "IDTR: {:?}", idtr_value).unwrap();
 
-    let idtr_ptr = idtr_value.address().to_raw() as *const IDTEntry;
-    let idtr_ref = unsafe { &*idtr_ptr };
+    let mut idtr_ptr = idtr_value.address().to_raw() as *const IDTEntry;
     let entry_count = (usize::from(idtr_value.limit()) + 1) / core::mem::size_of::<IDTEntry>();
 
-    writeln!(com1, "IDT entry is {:?}", idtr_ref).unwrap();
+    for _ in 0..entry_count {
+        let idtr_ref = unsafe { &*idtr_ptr };
+
+        writeln!(com1, "IDT entry is {:?}", idtr_ref).unwrap();
+
+        idtr_ptr = unsafe { idtr_ptr.offset(1) };
+    }
 
     Loader::new(image_handle, system_table).run();
 }
