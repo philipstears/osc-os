@@ -4,6 +4,74 @@ use bitflags::bitflags;
 use core::ops::{Index, IndexMut};
 
 #[derive(Copy, Clone)]
+pub struct LogicalAddress {
+    selector: SegmentSelector,
+    offset: u64,
+}
+
+impl LogicalAddress {
+    pub fn from_selector_and_offset(selector: SegmentSelector, offset: u64) -> Self {
+        Self { selector, offset }
+    }
+}
+
+impl core::fmt::Debug for LogicalAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("LogicalAddress")
+            .field(&self.selector)
+            .field(&format_args!("{:#018X}", self.offset))
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub enum TableIndicator {
+    Global,
+    Local,
+}
+
+#[derive(Copy, Clone)]
+pub struct SegmentSelector(u16);
+
+impl SegmentSelector {
+    pub fn from_raw(segment_selector: u16) -> Self {
+        Self(segment_selector)
+    }
+
+    pub fn to_raw(&self) -> u16 {
+        self.0
+    }
+
+    pub fn index(&self) -> u16 {
+        self.0 >> 3
+    }
+
+    pub fn rpl(&self) -> u16 {
+        self.0 & 0b011
+    }
+
+    pub fn indicator(&self) -> TableIndicator {
+        let global = (self.0 & 0b100) == 0;
+
+        if global {
+            TableIndicator::Global
+        } else {
+            TableIndicator::Local
+        }
+    }
+}
+
+impl core::fmt::Debug for SegmentSelector {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("SegmentSelector")
+            .field(&self.indicator())
+            .field(&self.rpl())
+            .field(&self.index())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
 pub struct LinearAddress(u64);
 
 impl LinearAddress {

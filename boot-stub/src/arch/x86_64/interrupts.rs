@@ -1,5 +1,6 @@
-use super::paging::LinearAddress;
+use super::paging::LogicalAddress;
 use super::paging::PhysicalAddress;
+use super::paging::SegmentSelector;
 
 #[repr(packed)]
 #[derive(Debug)]
@@ -98,16 +99,14 @@ impl IDTEntry {
         }
     }
 
-    pub fn selector(&self) -> u16 {
-        self.selector
-    }
+    pub fn logical_address(&self) -> LogicalAddress {
+        let selector = SegmentSelector::from_raw(self.selector);
 
-    pub fn offset(&self) -> LinearAddress {
         let offset = u64::from(self.offset_high) << 32
             | u64::from(self.offset_middle) << 16
             | u64::from(self.offset_lower);
 
-        unsafe { LinearAddress::from_raw_unchecked(offset) }
+        LogicalAddress::from_selector_and_offset(selector, offset)
     }
 }
 
@@ -117,8 +116,7 @@ impl core::fmt::Debug for IDTEntry {
             .field("entry_type", &self.entry_type())
             .field("present", &self.is_present())
             .field("dpl", &self.dpl())
-            .field("selector", &format_args!("{:#06X}", self.selector()))
-            .field("offset", &self.offset())
+            .field("logical_address", &self.logical_address())
             .finish()
     }
 }
