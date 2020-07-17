@@ -37,7 +37,7 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
 
     writeln!(
         com1,
-        "PML4 Location according to CR3 (with flags {:#X}): {:#X}",
+        "PML4 Location according to CR3 (with flags {:#X}): {:?}",
         flags, pml4
     )
     .unwrap();
