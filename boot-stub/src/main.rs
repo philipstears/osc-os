@@ -34,16 +34,17 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
     )
     .unwrap();
 
-    let (flags, pml4) = arch::x86_64::cr4::read();
+    let cr3_value = arch::x86_64::registers::CR3Value::read();
 
     writeln!(
         com1,
         "PML4 Location according to CR3 (with flags {:#X}): {:?}",
-        flags, pml4
+        cr3_value.flags_or_pcid(),
+        cr3_value.pml4_address()
     )
     .unwrap();
 
-    let pt_ptr = pml4.to_raw() as *const PageTable;
+    let pt_ptr = cr3_value.pml4_address().to_raw() as *const PageTable;
     let pt_ref = unsafe { &*pt_ptr };
 
     for index in 0..16 {
