@@ -12,6 +12,7 @@ use uefi::prelude::*;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
+mod ansi;
 mod arch;
 
 mod loader;
@@ -22,7 +23,12 @@ use arch::x86_64::serial;
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<Boot>) -> ! {
     let mut com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
-    writeln!(com1, "Hello from osc-os!");
+    writeln!(
+        com1,
+        "{}Hello from osc-os!{}",
+        ansi::Color::from_fg_and_bg(ansi::StandardColor::Black, ansi::StandardColor::White),
+        ansi::Reset
+    );
     Loader::new(image_handle, system_table).run();
 }
 
