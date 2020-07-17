@@ -9,6 +9,12 @@ pub trait PortWidth: private::PortWidthInternal {}
 /// Marks u8 as a valid port width.
 impl PortWidth for u8 {}
 
+/// Marks u16 as a valid port width.
+impl PortWidth for u16 {}
+
+/// Marks u32 as a valid port width.
+impl PortWidth for u32 {}
+
 /// Provides a type-safe wrapper around a port.
 #[repr(transparent)]
 pub struct Port<T: PortWidth> {
@@ -66,6 +72,58 @@ mod private {
                     "out dx, al",
                     in("dx") port_number,
                     in("al") value,
+                );
+            }
+        }
+    }
+
+    impl PortWidthInternal for u16 {
+        fn read(port_number: PortNumber) -> Self {
+            let result;
+
+            unsafe {
+                asm!(
+                    "in ax, dx",
+                    in("dx") port_number,
+                    out("ax") result,
+                )
+            }
+
+            result
+        }
+
+        fn write(port_number: PortNumber, value: Self) {
+            unsafe {
+                asm!(
+                    "out dx, ax",
+                    in("dx") port_number,
+                    in("ax") value,
+                );
+            }
+        }
+    }
+
+    impl PortWidthInternal for u32 {
+        fn read(port_number: PortNumber) -> Self {
+            let result;
+
+            unsafe {
+                asm!(
+                    "in eax, dx",
+                    in("dx") port_number,
+                    out("eax") result,
+                )
+            }
+
+            result
+        }
+
+        fn write(port_number: PortNumber, value: Self) {
+            unsafe {
+                asm!(
+                    "out dx, eax",
+                    in("dx") port_number,
+                    in("eax") value,
                 );
             }
         }
