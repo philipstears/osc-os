@@ -34,6 +34,16 @@ pub enum TableIndicator {
 pub struct SegmentSelector(u16);
 
 impl SegmentSelector {
+    pub fn from_cs_register() -> Self {
+        let result;
+
+        unsafe {
+            asm!("mov {}, cs", out(reg) result);
+        }
+
+        Self::from_raw(result)
+    }
+
     pub fn from_raw(segment_selector: u16) -> Self {
         Self(segment_selector)
     }

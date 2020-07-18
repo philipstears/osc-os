@@ -73,6 +73,7 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
     let mut gdtr_ptr = gdtr_value.address().to_raw() as *const GDTEntry;
     let gdte_count = (usize::from(gdtr_value.limit()) + 1) / core::mem::size_of::<GDTEntry>();
 
+    writeln!(com1, "CS: {:?}", SegmentSelector::from_cs_register()).unwrap();
     writeln!(com1, "GDTR: {:?}, Count: {}", gdtr_value, gdte_count).unwrap();
 
     for index in 0..gdte_count {
