@@ -50,7 +50,7 @@ pub enum GDTEntryType {
     Data {
         accessed: bool,
         write_enabled: bool,
-        expansion_direction: bool,
+        expansion_direction: ExpandDirection,
     },
 
     LDT,
@@ -64,6 +64,12 @@ pub enum GDTEntryType {
 
     /// An unknown system descriptor.
     InvalidSystem(u8),
+}
+
+#[derive(Debug)]
+pub enum ExpandDirection {
+    Down,
+    Up,
 }
 
 /// Provides access to the data in an entry in a global descriptor
@@ -130,7 +136,10 @@ impl GDTEntry {
                 GDTEntryType::Data {
                     accessed,
                     write_enabled: rw,
-                    expansion_direction: dc,
+                    expansion_direction: match dc {
+                        true => ExpandDirection::Down,
+                        false => ExpandDirection::Up,
+                    },
                 }
             }
         } else {

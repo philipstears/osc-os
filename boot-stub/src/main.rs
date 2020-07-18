@@ -61,10 +61,10 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
     let mut idtr_ptr = idtr_value.address().to_raw() as *const IDTEntry;
     let entry_count = (usize::from(idtr_value.limit()) + 1) / core::mem::size_of::<IDTEntry>();
 
-    for _ in 0..entry_count {
+    for index in 0..entry_count {
         let idtr_ref = unsafe { &*idtr_ptr };
 
-        writeln!(com1, "IDT entry is {:?}", idtr_ref).unwrap();
+        writeln!(com1, "{}: {:?}", index, idtr_ref).unwrap();
 
         idtr_ptr = unsafe { idtr_ptr.offset(1) };
     }
@@ -75,10 +75,10 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
 
     writeln!(com1, "GDTR: {:?}, Count: {}", gdtr_value, gdte_count).unwrap();
 
-    for _ in 0..gdte_count {
+    for index in 0..gdte_count {
         let gdtr_ref = unsafe { &*gdtr_ptr };
 
-        writeln!(com1, "GDT entry is {:?}", gdtr_ref).unwrap();
+        writeln!(com1, "{}: {:?}", index, gdtr_ref).unwrap();
 
         gdtr_ptr = unsafe { gdtr_ptr.offset(1) };
     }
