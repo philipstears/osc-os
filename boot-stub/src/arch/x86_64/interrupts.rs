@@ -1,12 +1,12 @@
+use super::paging::LinearAddress;
 use super::paging::LogicalAddress;
-use super::paging::PhysicalAddress;
 use super::paging::SegmentSelector;
 
 #[repr(packed)]
 #[derive(Debug)]
 pub struct IDTRValue {
     limit: u16,
-    address: PhysicalAddress,
+    address: LinearAddress,
 }
 
 impl IDTRValue {
@@ -22,8 +22,8 @@ impl IDTRValue {
         }
     }
 
-    /// Gets the physical address.
-    pub fn address(&self) -> PhysicalAddress {
+    /// Gets the linear address.
+    pub fn address(&self) -> LinearAddress {
         self.address
     }
 

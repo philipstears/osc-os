@@ -1,10 +1,10 @@
-use super::paging::PhysicalAddress;
+use super::paging::LinearAddress;
 
 #[repr(packed)]
 #[derive(Debug)]
 pub struct GDTRValue {
     limit: u16,
-    address: PhysicalAddress,
+    address: LinearAddress,
 }
 
 impl GDTRValue {
@@ -20,8 +20,8 @@ impl GDTRValue {
         }
     }
 
-    /// Gets the physical address.
-    pub fn address(&self) -> PhysicalAddress {
+    /// Gets the linear address.
+    pub fn address(&self) -> LinearAddress {
         self.address
     }
 
