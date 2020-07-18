@@ -55,7 +55,7 @@ pub enum IDTEntryType {
 /// |  8 - 11  | 4      | Offset high bits (32..63)                |
 /// | 12 - 16  | 4      | Reserved                                 |
 ///
-/// For more details about the structure of the IDR see Intel 3A - 6.14.1.
+/// For more details about the structure of the IDT see Intel 3A - 6.14.1.
 ///
 /// Note that in x86-64, only interrupt gates and trap gates are
 /// supported (task gates are deprecated).

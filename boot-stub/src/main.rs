@@ -19,6 +19,7 @@ mod arch;
 mod loader;
 use loader::*;
 
+use arch::x86_64::gdt::*;
 use arch::x86_64::interrupts::*;
 use arch::x86_64::paging::*;
 use arch::x86_64::serial;
@@ -68,10 +69,19 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         idtr_ptr = unsafe { idtr_ptr.offset(1) };
     }
 
-    let gdtr_value = arch::x86_64::gdt::GDTRValue::read();
-    let gdte_count = (usize::from(gdtr_value.limit()) + 1) / 8;
+    let gdtr_value = GDTRValue::read();
+    let mut gdtr_ptr = gdtr_value.address().to_raw() as *const GDTEntry;
+    let gdte_count = (usize::from(gdtr_value.limit()) + 1) / core::mem::size_of::<GDTEntry>();
 
     writeln!(com1, "GDTR: {:?}, Count: {}", gdtr_value, gdte_count).unwrap();
+
+    for _ in 0..gdte_count {
+        let gdtr_ref = unsafe { &*gdtr_ptr };
+
+        writeln!(com1, "GDT entry is {:?}", gdtr_ref).unwrap();
+
+        gdtr_ptr = unsafe { gdtr_ptr.offset(1) };
+    }
 
     Loader::new(image_handle, system_table).run();
 }
