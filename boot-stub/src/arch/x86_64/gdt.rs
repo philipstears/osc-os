@@ -160,10 +160,14 @@ impl GDTEntry {
 
 impl core::fmt::Debug for GDTEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("GDTEntry")
-            .field("entry_type", &self.entry_type())
-            .field("present", &self.is_present())
-            .field("dpl", &self.dpl())
-            .finish()
+        if self.is_present() {
+            f.debug_struct("GDTEntry")
+                .field("entry_type", &self.entry_type())
+                .field("present", &true)
+                .field("dpl", &self.dpl())
+                .finish()
+        } else {
+            f.debug_struct("GDTEntry").field("present", &false).finish()
+        }
     }
 }
