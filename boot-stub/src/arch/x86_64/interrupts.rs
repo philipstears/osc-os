@@ -3,7 +3,7 @@ use super::paging::LogicalAddress;
 use super::paging::SegmentSelector;
 
 #[repr(packed)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct IDTRValue {
     limit: u16,
     address: LinearAddress,

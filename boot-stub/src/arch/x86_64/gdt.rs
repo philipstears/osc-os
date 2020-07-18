@@ -1,7 +1,7 @@
 use super::paging::LinearAddress;
 
 #[repr(packed)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct GDTRValue {
     limit: u16,
     address: LinearAddress,
