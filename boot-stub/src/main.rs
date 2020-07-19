@@ -15,6 +15,7 @@ use core::panic::PanicInfo;
 
 mod ansi;
 mod arch;
+mod elf;
 
 mod loader;
 use loader::*;

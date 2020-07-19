@@ -41,14 +41,16 @@ impl Loader<Ready> {
         let map_size = self.system_table.boot_services().memory_map_size();
         let _map_dest = vec![0u8; map_size << 2];
 
-        let kernel_str =
-            unsafe { core::str::from_utf8_unchecked(self.phase_data.kernel.loaded_image.as_ref()) };
+        let common_header_ptr =
+            self.phase_data.kernel.loaded_image.as_ptr() as *const crate::elf::CommonHeader;
+
+        let common_header = unsafe { &*common_header_ptr };
 
         print_string(
             &self.system_table,
             format!(
-                "Would run kernel with mem map of size {}: {}",
-                map_size, kernel_str
+                "Would run kernel with mem map of size {}: {:?}",
+                map_size, common_header,
             ),
         );
 
@@ -194,7 +196,7 @@ impl Loader<Prepare> {
 
 fn print_string(st: &SystemTable<Boot>, string: impl AsRef<str>) {
     let string_bytes = string.as_ref().as_bytes();
-    let mut buf = [0u16; 64];
+    let mut buf = [0u16; 4096];
 
     for i in 0..string_bytes.len() {
         buf[i] = string_bytes[i] as u16;
