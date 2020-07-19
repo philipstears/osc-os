@@ -38,7 +38,7 @@ impl SegmentSelector {
         let result;
 
         unsafe {
-            asm!("mov {}, cs", out(reg) result);
+            asm!("mov {0:x}, cs", out(reg) result);
         }
 
         Self::from_raw(result)
