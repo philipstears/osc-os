@@ -44,15 +44,24 @@ STUB_SOURCE_FILES := \
 # ------------------------------------------------------------------------------
 # Kernel Vars
 # ------------------------------------------------------------------------------
-KERNEL_NAME := osc-os-kernel.elf
+KERNEL_NAME := kernel
 KERNEL_SOURCE_DIR := kernel
-KERNEL_PLATFORM := x86_64-unknown-none-gnuabi
+KERNEL_PLATFORM := x86_64-unknown-none-gnu
 KERNEL_BUILD_DIR := $(KERNEL_SOURCE_DIR)/target/$(KERNEL_PLATFORM)/$(BUILD_TYPE)
+
+KERNEL_SOURCE_FILES := \
+	Makefile \
+	$(KERNEL_SOURCE_DIR)/Cargo.lock \
+	$(KERNEL_SOURCE_DIR)/Cargo.toml \
+	$(KERNEL_SOURCE_DIR)/$(KERNEL_PLATFORM).json \
+	$(shell find $(KERNEL_SOURCE_DIR)/src/ -type f -name "*.rs")
 
 # ------------------------------------------------------------------------------
 # Shared Build
 # ------------------------------------------------------------------------------
-all: $(STUB_BUILD_DIR)/$(STUB_NAME)
+all: \
+	$(STUB_BUILD_DIR)/$(STUB_NAME) \
+	$(KERNEL_BUILD_DIR)/$(KERNEL_NAME)
 
 clean:
 	rm -rf $(STUB_BUILD_DIR)
@@ -105,9 +114,8 @@ $(MAIN_BUILD_DIR)/$(DISK_NAME): $(MAIN_BUILD_DIR)/$(PART_NAME)
 # ------------------------------------------------------------------------------
 # Kernel Build
 # ------------------------------------------------------------------------------
-$(KERNEL_BUILD_DIR)/$(KERNEL_NAME): Makefile
-	mkdir -p $(KERNEL_BUILD_DIR)
-	printf "Hello, World\n" > $@
+$(KERNEL_BUILD_DIR)/$(KERNEL_NAME): $(KERNEL_SOURCE_FILES)
+	cd $(KERNEL_SOURCE_DIR) && cargo build -Z build-std=core,alloc --target $(KERNEL_PLATFORM).json $(CARGO_PROFILE_ARG)
 
 # ------------------------------------------------------------------------------
 # Boot Stub Build
