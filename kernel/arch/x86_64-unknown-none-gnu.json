@@ -14,7 +14,7 @@
     "features": "-mmx,-sse,+soft-float",
     "pre-link-args": {
       "ld.lld": [
-        "--script=x86_64-unknown-none-gnu.ld"
+        "--script=arch/x86_64-unknown-none-gnu.ld"
       ]
     }
 }
