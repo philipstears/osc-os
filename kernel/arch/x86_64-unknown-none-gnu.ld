@@ -1,42 +1,40 @@
 ENTRY(kernel_main)
 
-MAGIC_NUMBER = 0xe85250d6;
+SECTIONS
+{
 
-SECTIONS {
-  . = 1M;
+  /*
+   * x64, higher half start + 1MiB
+   */
+	. = 0xFFFF800000100000;
 
-  .boot :
-  {
-    header_start = .;
+	_kernel_start = .;
 
-    /* Magic number */
-    LONG(MAGIC_NUMBER)
-    /* Architecture 0: Protected mode i386 */
-    LONG(0)
-    /* Header length */
-    LONG(header_end - header_start)
-    /* Checksum */
-    LONG(0x100000000 - (MAGIC_NUMBER + (header_end - header_start)))
-    /* Required end tag */
-    /* Type */
-    SHORT(0)
-    /* Flags */
-    SHORT(0)
-    /* Size */
-    LONG(8)
+	.text ALIGN (4K) :
+	{
+		*(.text)
+	}
 
-    header_end = .;
-  }
+	.rodata ALIGN (4K) :
+	{
+		*(.rodata)
+	}
 
-  .text :
-  {
-    KEEP(*(.text.start))
-    *(.text.*)
-  }
+	.data ALIGN (4K) :
+	{
+		*(.data)
+	}
+
+	.bss ALIGN (4K) :
+	{
+		*(.bss)
+	}
 
   /DISCARD/ :
   {
     *(.note.gnu.*)
     *(.comment)
   }
+
+	_kernel_end = .;
 }
