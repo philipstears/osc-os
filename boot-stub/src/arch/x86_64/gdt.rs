@@ -1,6 +1,4 @@
 use super::paging::LinearAddress;
-use super::paging::LogicalAddress;
-use super::paging::SegmentSelector;
 
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]
