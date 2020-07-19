@@ -54,6 +54,7 @@ KERNEL_SOURCE_FILES := \
 	$(KERNEL_SOURCE_DIR)/Cargo.lock \
 	$(KERNEL_SOURCE_DIR)/Cargo.toml \
 	$(KERNEL_SOURCE_DIR)/$(KERNEL_PLATFORM).json \
+	$(KERNEL_SOURCE_DIR)/$(KERNEL_PLATFORM).ld \
 	$(shell find $(KERNEL_SOURCE_DIR)/src/ -type f -name "*.rs")
 
 # ------------------------------------------------------------------------------

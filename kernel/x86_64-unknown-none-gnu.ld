@@ -1,4 +1,4 @@
-ENTRY(start)
+ENTRY(kernel_main)
 
 MAGIC_NUMBER = 0xe85250d6;
 
@@ -37,5 +37,6 @@ SECTIONS {
   /DISCARD/ :
   {
     *(.note.gnu.*)
+    *(.comment)
   }
 }
