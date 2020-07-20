@@ -174,7 +174,6 @@ impl From<u16> for InstructionSet {
 }
 
 #[repr(packed)]
-#[derive(Debug)]
 pub struct Header64 {
     program_entry: u64,
     program_header_table_position: u64,
@@ -186,4 +185,36 @@ pub struct Header64 {
     section_header_entry_size: u16,
     section_header_entry_count: u16,
     section_name_entry_index: u16,
+}
+
+impl core::fmt::Debug for Header64 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Header64")
+            .field(
+                "program_entry",
+                &format_args!("{:016X}", self.program_entry),
+            )
+            .field(
+                "program_header_table_position",
+                &format_args!("{:016X}", self.program_header_table_position),
+            )
+            .field(
+                "section_header_table_position",
+                &format_args!("{:016X}", self.section_header_table_position),
+            )
+            .field("flags", &self.flags)
+            .field("header_size", &self.flags)
+            .field("program_header_entry_size", &self.program_header_entry_size)
+            .field(
+                "program_header_entry_count",
+                &self.program_header_entry_count,
+            )
+            .field("section_header_entry_size", &self.section_header_entry_size)
+            .field(
+                "section_header_entry_count",
+                &self.section_header_entry_count,
+            )
+            .field("section_name_entry_index", &self.section_name_entry_index)
+            .finish()
+    }
 }
