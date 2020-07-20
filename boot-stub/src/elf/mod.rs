@@ -19,7 +19,7 @@
 // 46-47                 58-59                 Size of an entry in the section header table
 // 48-49                 60-61                 Number of entries in the section header table
 // 50-51                 62-63                 Index in section header table with the section names
-#[repr(C)]
+#[repr(packed)]
 pub struct CommonHeader {
     pub magic: [u8; 4],
     pub architecture: u8,
@@ -171,4 +171,19 @@ impl From<u16> for InstructionSet {
             n => Self::Other(n),
         }
     }
+}
+
+#[repr(packed)]
+#[derive(Debug)]
+pub struct Header64 {
+    program_entry: u64,
+    program_header_table_position: u64,
+    section_header_table_position: u64,
+    flags: u32,
+    header_size: u16,
+    program_header_entry_size: u16,
+    program_header_entry_count: u16,
+    section_header_entry_size: u16,
+    section_header_entry_count: u16,
+    section_name_entry_index: u16,
 }

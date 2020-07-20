@@ -8,6 +8,8 @@ use uefi::proto::media::file::*;
 use uefi::proto::media::fs::*;
 use uefi::CStr16;
 
+use crate::elf;
+
 const KERNEL_LOCATION: &'static str = "OSCOS\\KERNEL.BIN";
 
 enum BootError {
@@ -42,15 +44,26 @@ impl Loader<Ready> {
         let _map_dest = vec![0u8; map_size << 2];
 
         let common_header_ptr =
-            self.phase_data.kernel.loaded_image.as_ptr() as *const crate::elf::CommonHeader;
+            self.phase_data.kernel.loaded_image.as_ptr() as *const elf::CommonHeader;
 
         let common_header = unsafe { &*common_header_ptr };
+
+        let specific_header_ptr = unsafe {
+            self.phase_data
+                .kernel
+                .loaded_image
+                .as_ptr()
+                .offset(core::mem::size_of::<elf::CommonHeader>() as isize)
+                as *const elf::Header64
+        };
+
+        let specific_header = unsafe { &*specific_header_ptr };
 
         print_string(
             &self.system_table,
             format!(
-                "Would run kernel with mem map of size {}: {:?}",
-                map_size, common_header,
+                "Would run kernel with mem map of size {}\r\nCommon Header: {:?}\r\nSpecific Header: {:?}\r\n",
+                map_size, common_header, specific_header
             ),
         );
 
