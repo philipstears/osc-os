@@ -20,7 +20,7 @@
 // 48-49                 60-61                 Number of entries in the section header table
 // 50-51                 62-63                 Index in section header table with the section names
 #[repr(packed)]
-pub struct CommonHeader {
+pub struct FileHeaderCommon {
     pub magic: [u8; 4],
     pub architecture: u8,
     pub endianness: u8,
@@ -32,7 +32,7 @@ pub struct CommonHeader {
     pub elf_version: u32,
 }
 
-impl CommonHeader {
+impl FileHeaderCommon {
     pub fn is_magic_valid(&self) -> bool {
         self.magic.as_ref() == b"\x7FELF"
     }
@@ -60,10 +60,10 @@ impl CommonHeader {
     }
 }
 
-impl core::fmt::Debug for CommonHeader {
+impl core::fmt::Debug for FileHeaderCommon {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_magic_valid() {
-            f.debug_struct("CommonHeader")
+            f.debug_struct("FileHeaderCommon")
                 .field("architecture", &self.architecture())
                 .field("endianness", &self.endianness())
                 .field("header_version", &self.header_version)
@@ -73,7 +73,7 @@ impl core::fmt::Debug for CommonHeader {
                 .field("elf_version", &self.elf_version)
                 .finish()
         } else {
-            f.debug_struct("CommonHeader")
+            f.debug_struct("FileHeaderCommon")
                 .field("is_magic_valid", &false)
                 .finish()
         }
@@ -174,20 +174,20 @@ impl From<u16> for InstructionSet {
 }
 
 #[repr(packed)]
-pub struct Header64 {
-    program_entry: u64,
-    program_header_table_position: u64,
-    section_header_table_position: u64,
-    flags: u32,
-    header_size: u16,
-    program_header_entry_size: u16,
-    program_header_entry_count: u16,
-    section_header_entry_size: u16,
-    section_header_entry_count: u16,
-    section_name_entry_index: u16,
+pub struct FileHeader64 {
+    pub program_entry: u64,
+    pub program_header_table_position: u64,
+    pub section_header_table_position: u64,
+    pub flags: u32,
+    pub header_size: u16,
+    pub program_header_entry_size: u16,
+    pub program_header_entry_count: u16,
+    pub section_header_entry_size: u16,
+    pub section_header_entry_count: u16,
+    pub section_name_entry_index: u16,
 }
 
-impl core::fmt::Debug for Header64 {
+impl core::fmt::Debug for FileHeader64 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Header64")
             .field(
@@ -215,6 +215,33 @@ impl core::fmt::Debug for Header64 {
                 &self.section_header_entry_count,
             )
             .field("section_name_entry_index", &self.section_name_entry_index)
+            .finish()
+    }
+}
+
+#[repr(packed)]
+pub struct ProgramHeader64 {
+    pub segment_type: u32,
+    pub flags: u32,
+    pub offset: u64,
+    pub vma: u64,
+    pub lma: u64,
+    pub size_in_file: u64,
+    pub size_in_memory: u64,
+    pub align: u64,
+}
+
+impl core::fmt::Debug for ProgramHeader64 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ProgramHeader64")
+            .field("segment_type", &self.segment_type)
+            .field("flags", &self.flags)
+            .field("offset", &format_args!("{:016X}", self.offset))
+            .field("vma", &format_args!("{:016X}", self.vma))
+            .field("lma", &format_args!("{:016X}", self.lma))
+            .field("size_in_file", &self.size_in_file)
+            .field("size_in_memory", &self.size_in_file)
+            .field("align", &self.align)
             .finish()
     }
 }
