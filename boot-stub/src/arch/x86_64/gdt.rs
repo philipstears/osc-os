@@ -1,4 +1,4 @@
-use super::paging::LinearAddress;
+use super::mem::LinearAddress;
 
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]

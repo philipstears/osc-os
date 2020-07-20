@@ -1,4 +1,4 @@
-use super::paging::PhysicalAddress;
+use super::mem::PhysicalAddress;
 
 /// Provides support for inspecting/manipulating the
 /// contents of the third control register.

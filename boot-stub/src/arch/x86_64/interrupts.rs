@@ -1,6 +1,6 @@
-use super::paging::LinearAddress;
-use super::paging::LogicalAddress;
-use super::paging::SegmentSelector;
+use super::mem::LinearAddress;
+use super::mem::LogicalAddress;
+use super::mem::SegmentSelector;
 
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]

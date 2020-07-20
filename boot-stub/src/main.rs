@@ -22,7 +22,8 @@ use loader::*;
 
 use arch::x86_64::gdt::*;
 use arch::x86_64::interrupts::*;
-use arch::x86_64::paging::*;
+use arch::x86_64::mem::paging::*;
+use arch::x86_64::mem::*;
 use arch::x86_64::serial;
 
 #[no_mangle]
