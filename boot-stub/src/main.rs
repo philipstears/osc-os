@@ -28,6 +28,8 @@ use arch::x86_64::serial;
 
 #[no_mangle]
 pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<Boot>) -> ! {
+    system_table.stdout().reset(false).unwrap_success();
+
     let mut com1 = unsafe { serial::SerialPort::new(serial::SerialPortDescriptor::StandardCom1) };
 
     writeln!(

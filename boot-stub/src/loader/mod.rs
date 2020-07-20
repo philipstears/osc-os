@@ -196,13 +196,17 @@ impl Loader<Prepare> {
 
 fn print_string(st: &SystemTable<Boot>, string: impl AsRef<str>) {
     let string_bytes = string.as_ref().as_bytes();
-    let mut buf = [0u16; 4096];
+    let mut buf = [0u16; 64];
 
-    for i in 0..string_bytes.len() {
-        buf[i] = string_bytes[i] as u16;
+    for chunk in string_bytes.chunks(buf.len() - 1) {
+        for i in 0..chunk.len() {
+            buf[i] = chunk[i] as u16;
+        }
+
+        buf[chunk.len()] = 0;
+
+        st.stdout()
+            .output_string(unsafe { &CStr16::from_u16_with_nul_unchecked(&buf[..chunk.len()]) })
+            .unwrap_success();
     }
-
-    st.stdout()
-        .output_string(unsafe { &CStr16::from_u16_with_nul_unchecked(&buf) })
-        .unwrap_success();
 }
