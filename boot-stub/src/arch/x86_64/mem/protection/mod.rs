@@ -183,4 +183,10 @@ impl SegmentDescriptorTableRef {
         let count = self.count();
         core::slice::from_raw_parts(first_ptr, count)
     }
+
+    pub unsafe fn entries_mut(&self) -> &mut [SegmentDescriptor] {
+        let first_ptr = self.address.to_raw() as *mut SegmentDescriptor;
+        let count = self.count();
+        core::slice::from_raw_parts_mut(first_ptr, count)
+    }
 }
