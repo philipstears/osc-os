@@ -73,7 +73,7 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         idtr_ptr = unsafe { idtr_ptr.offset(1) };
     }
 
-    let gdt_ref = GDTRegister::read();
+    let gdt_ref = GDTR::read();
 
     writeln!(com1, "CS: {:?}", SegmentSelector::from_cs_register()).unwrap();
     writeln!(com1, "GDTR: {:?}, Count: {}", gdt_ref, gdt_ref.count()).unwrap();

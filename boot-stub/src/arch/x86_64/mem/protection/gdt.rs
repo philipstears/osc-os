@@ -3,9 +3,9 @@ use super::SegmentDescriptorTableRef;
 /// Provides access to the GDTR (Global Descriptor Table Register).
 ///
 /// For more details about the structure of the GDT see Intel 3A - 3.4.5
-pub enum GDTRegister {}
+pub enum GDTR {}
 
-impl GDTRegister {
+impl GDTR {
     /// Reads the current value of the GDT register.
     pub fn read() -> SegmentDescriptorTableRef {
         unsafe {
