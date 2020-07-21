@@ -63,14 +63,21 @@ impl FileHeaderCommon {
 impl core::fmt::Debug for FileHeaderCommon {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_magic_valid() {
+            // We copy values on to the stack because the formatter wants
+            // borrowed values, but our fields are packed, which in theory
+            // means when the references are dereferenced, it could trigger
+            // an unaligned access exception
+            let header_version = self.header_version;
+            let elf_version = self.elf_version;
+
             f.debug_struct("FileHeaderCommon")
                 .field("architecture", &self.architecture())
                 .field("endianness", &self.endianness())
-                .field("header_version", &self.header_version)
+                .field("header_version", &header_version)
                 .field("abi", &self.abi())
                 .field("binary_type", &self.binary_type())
                 .field("instruction_set", &self.instruction_set())
-                .field("elf_version", &self.elf_version)
+                .field("elf_version", &elf_version)
                 .finish()
         } else {
             f.debug_struct("FileHeaderCommon")
@@ -189,32 +196,38 @@ pub struct FileHeader64 {
 
 impl core::fmt::Debug for FileHeader64 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // We copy values on to the stack because the formatter wants
+        // borrowed values, but our fields are packed, which in theory
+        // means when the references are dereferenced, it could trigger
+        // an unaligned access exception
+        let program_entry = self.program_entry;
+        let program_header_table_position = self.program_header_table_position;
+        let section_header_table_position = self.section_header_table_position;
+        let flags = self.flags;
+        let header_size = self.header_size;
+        let program_header_entry_size = self.program_header_entry_size;
+        let program_header_entry_count = self.program_header_entry_count;
+        let section_header_entry_size = self.section_header_entry_size;
+        let section_header_entry_count = self.section_header_entry_count;
+        let section_name_entry_index = self.section_name_entry_index;
+
         f.debug_struct("Header64")
-            .field(
-                "program_entry",
-                &format_args!("{:016X}", self.program_entry),
-            )
+            .field("program_entry", &format_args!("{:016X}", program_entry))
             .field(
                 "program_header_table_position",
-                &format_args!("{:016X}", self.program_header_table_position),
+                &format_args!("{:016X}", program_header_table_position),
             )
             .field(
                 "section_header_table_position",
-                &format_args!("{:016X}", self.section_header_table_position),
+                &format_args!("{:016X}", section_header_table_position),
             )
-            .field("flags", &self.flags)
-            .field("header_size", &self.flags)
-            .field("program_header_entry_size", &self.program_header_entry_size)
-            .field(
-                "program_header_entry_count",
-                &self.program_header_entry_count,
-            )
-            .field("section_header_entry_size", &self.section_header_entry_size)
-            .field(
-                "section_header_entry_count",
-                &self.section_header_entry_count,
-            )
-            .field("section_name_entry_index", &self.section_name_entry_index)
+            .field("flags", &flags)
+            .field("header_size", &header_size)
+            .field("program_header_entry_size", &program_header_entry_size)
+            .field("program_header_entry_count", &program_header_entry_count)
+            .field("section_header_entry_size", &section_header_entry_size)
+            .field("section_header_entry_count", &section_header_entry_count)
+            .field("section_name_entry_index", &section_name_entry_index)
             .finish()
     }
 }
@@ -233,15 +246,28 @@ pub struct ProgramHeader64 {
 
 impl core::fmt::Debug for ProgramHeader64 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // We copy values on to the stack because the formatter wants
+        // borrowed values, but our fields are packed, which in theory
+        // means when the references are dereferenced, it could trigger
+        // an unaligned access exception
+        let segment_type = self.segment_type;
+        let flags = self.flags;
+        let offset = self.offset;
+        let vma = self.vma;
+        let lma = self.lma;
+        let size_in_file = self.size_in_file;
+        let size_in_memory = self.size_in_memory;
+        let align = self.align;
+
         f.debug_struct("ProgramHeader64")
-            .field("segment_type", &self.segment_type)
-            .field("flags", &self.flags)
-            .field("offset", &format_args!("{:016X}", self.offset))
-            .field("vma", &format_args!("{:016X}", self.vma))
-            .field("lma", &format_args!("{:016X}", self.lma))
-            .field("size_in_file", &self.size_in_file)
-            .field("size_in_memory", &self.size_in_file)
-            .field("align", &self.align)
+            .field("segment_type", &segment_type)
+            .field("flags", &flags)
+            .field("offset", &format_args!("{:016X}", offset))
+            .field("vma", &format_args!("{:016X}", vma))
+            .field("lma", &format_args!("{:016X}", lma))
+            .field("size_in_file", &size_in_file)
+            .field("size_in_memory", &size_in_memory)
+            .field("align", &align)
             .finish()
     }
 }
