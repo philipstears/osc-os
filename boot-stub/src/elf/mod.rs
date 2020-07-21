@@ -1,3 +1,5 @@
+use bitflags::bitflags;
+
 #[derive(Debug)]
 pub struct ELF64<'a> {
     base: *const u8,
@@ -103,6 +105,11 @@ impl FileHeaderCommon {
         // TODO: endianness
         self.instruction_set.into()
     }
+
+    pub fn elf_version(&self) -> ElfVersion {
+        // TODO: endianness
+        self.elf_version.into()
+    }
 }
 
 impl core::fmt::Debug for FileHeaderCommon {
@@ -115,7 +122,7 @@ impl core::fmt::Debug for FileHeaderCommon {
                 .field("abi", &self.abi())
                 .field("binary_type", &self.binary_type())
                 .field("instruction_set", &self.instruction_set())
-                .field("elf_version", &self.elf_version)
+                .field("elf_version", &self.elf_version())
                 .finish()
         } else {
             f.debug_struct("FileHeaderCommon").field("is_magic_valid", &false).finish()
@@ -174,20 +181,24 @@ impl From<u8> for ABI {
 
 #[derive(Debug)]
 pub enum BinaryType {
+    None,
     Relocatable,
     Executable,
     Shared,
     Core,
+    ProcessorSpecific(u16),
     Invalid(u16),
 }
 
 impl From<u16> for BinaryType {
     fn from(value: u16) -> Self {
         match value {
+            0 => Self::None,
             1 => Self::Relocatable,
             2 => Self::Executable,
             3 => Self::Shared,
             4 => Self::Core,
+            n @ 0xff00..=0xffff => Self::ProcessorSpecific(n),
             n => Self::Invalid(n),
         }
     }
@@ -211,6 +222,21 @@ impl From<u16> for InstructionSet {
             0x3E => Self::AMD64,
             0xB7 => Self::ARM64,
             0xF3 => Self::RISCV,
+            n => Self::Other(n),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ElfVersion {
+    Original,
+    Other(u32),
+}
+
+impl From<u32> for ElfVersion {
+    fn from(value: u32) -> Self {
+        match value {
+            0x01 => Self::Original,
             n => Self::Other(n),
         }
     }
@@ -265,11 +291,28 @@ pub struct ProgramHeader64 {
     pub align: u64,
 }
 
+impl ProgramHeader64 {
+    const STANDARD_FLAGS_MASK: u32 = 0b0111;
+
+    pub fn segment_type(&self) -> SegmentType {
+        self.segment_type.into()
+    }
+
+    pub fn standard_flags(&self) -> StandardSegmentFlags {
+        unsafe { StandardSegmentFlags::from_bits_unchecked(self.flags & Self::STANDARD_FLAGS_MASK) }
+    }
+
+    pub fn other_flags(&self) -> u32 {
+        self.flags & !Self::STANDARD_FLAGS_MASK
+    }
+}
+
 impl core::fmt::Debug for ProgramHeader64 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ProgramHeader64")
-            .field("segment_type", &self.segment_type)
-            .field("flags", &self.flags)
+            .field("segment_type", &self.segment_type())
+            .field("standard_flags", &self.standard_flags())
+            .field("other_flags", &self.other_flags())
             .field("offset", &format_args!("{:016X}", self.offset))
             .field("vma", &format_args!("{:016X}", self.vma))
             .field("lma", &format_args!("{:016X}", self.lma))
@@ -277,5 +320,58 @@ impl core::fmt::Debug for ProgramHeader64 {
             .field("size_in_memory", &self.size_in_memory)
             .field("align", &self.align)
             .finish()
+    }
+}
+
+/// Value 	Name 	Meaning
+/// 0x00000000 	PT_NULL 	Program header table entry unused
+/// 0x00000001 	PT_LOAD 	Loadable segment
+/// 0x00000002 	PT_DYNAMIC 	Dynamic linking information
+/// 0x00000003 	PT_INTERP 	Interpreter information
+/// 0x00000004 	PT_NOTE 	Auxiliary information
+/// 0x00000005 	PT_SHLIB 	reserved
+/// 0x00000006 	PT_PHDR 	segment containing program header table itself
+/// 0x00000007 	PT_TLS 	    Thread-Local Storage template
+#[derive(Debug)]
+pub enum SegmentType {
+    Null,
+    Load,
+    Dynamic,
+    Interpreter,
+    Note,
+    Shlib,
+    ProgramHeaderTable,
+    ThreadLocalStorage,
+    GNUEHFrame,
+    GNUStack,
+    OperatingSystemSpecific(u32),
+    ProcessorSpecific(u32),
+    Other(u32),
+}
+
+impl From<u32> for SegmentType {
+    fn from(value: u32) -> Self {
+        match value {
+            0x00 => Self::Null,
+            0x01 => Self::Load,
+            0x02 => Self::Dynamic,
+            0x03 => Self::Interpreter,
+            0x04 => Self::Note,
+            0x05 => Self::Shlib,
+            0x06 => Self::ProgramHeaderTable,
+            0x6474e550 => Self::GNUEHFrame,
+            0x6474e551 => Self::GNUStack,
+            n @ 0x60000000..=0x6FFFFFFF => Self::OperatingSystemSpecific(n),
+            n @ 0x70000000..=0x7FFFFFFF => Self::ProcessorSpecific(n),
+            n => Self::Other(n),
+        }
+    }
+}
+
+bitflags! {
+    pub struct StandardSegmentFlags: u32 {
+        const EXECUTE = 0b0001;
+        const WRITE = 0b0010;
+        const READ = 0b0100;
     }
 }
