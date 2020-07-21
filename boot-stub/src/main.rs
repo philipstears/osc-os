@@ -58,19 +58,14 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         writeln!(com1, "PT entry {} is {:?}", index, entry).unwrap();
     }
 
-    let idtr_value = arch::x86_64::interrupts::IDTRValue::read();
+    let idt_ref = IDTR::read();
 
-    writeln!(com1, "IDTR: {:?}", idtr_value).unwrap();
+    writeln!(com1, "IDTR: {:?}", idt_ref).unwrap();
 
-    let mut idtr_ptr = idtr_value.address().to_raw() as *const IDTEntry;
-    let entry_count = (usize::from(idtr_value.limit()) + 1) / core::mem::size_of::<IDTEntry>();
-
-    for index in 0..entry_count {
-        let idtr_ref = unsafe { &*idtr_ptr };
-
-        writeln!(com1, "{}: {:?}", index, idtr_ref).unwrap();
-
-        idtr_ptr = unsafe { idtr_ptr.offset(1) };
+    unsafe {
+        for (index, entry) in idt_ref.entries().iter().enumerate() {
+            writeln!(com1, "{}: {:?}", index, entry).unwrap();
+        }
     }
 
     let gdt_ref = GDTR::read();

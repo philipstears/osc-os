@@ -1,27 +1,39 @@
+/// Provides facilities for working with the contents of interrupt descriptor
+/// tables.
+///
+/// For more details about the structure of the IDT see Intel 3A - 6.14.1.
 use super::mem::LinearAddress;
 use super::mem::LogicalAddress;
 use super::mem::SegmentSelector;
 
-#[repr(packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct IDTRValue {
-    limit: u16,
-    address: LinearAddress,
-}
+/// Provides access to the IDT register.
+pub enum IDTR {}
 
-impl IDTRValue {
+impl IDTR {
     /// Reads the current value of the IDT register.
-    pub fn read() -> Self {
+    pub fn read() -> InterruptDescriptorTableRef {
         unsafe {
-            let mut result: Self = core::mem::MaybeUninit::uninit().assume_init();
-            let result_ptr = &mut result as *mut Self;
+            let mut result: InterruptDescriptorTableRef =
+                core::mem::MaybeUninit::uninit().assume_init();
+            let result_ptr = &mut result as *mut InterruptDescriptorTableRef;
 
             asm!("sidt [{0}]", in(reg) result_ptr);
 
             result
         }
     }
+}
 
+/// A reference to an interrupt descriptor table in
+/// linear memory.
+#[repr(packed)]
+#[derive(Debug, Copy, Clone)]
+pub struct InterruptDescriptorTableRef {
+    limit: u16,
+    address: LinearAddress,
+}
+
+impl InterruptDescriptorTableRef {
     /// Gets the linear address.
     pub fn address(&self) -> LinearAddress {
         self.address
@@ -31,19 +43,37 @@ impl IDTRValue {
     pub fn limit(&self) -> u16 {
         self.limit
     }
+
+    /// Gets the count of entries.
+    pub fn count(&self) -> usize {
+        (self.limit as usize + 1) / core::mem::size_of::<InterruptDescriptor>()
+    }
+
+    /// Gets the table entries as a slice.
+    pub unsafe fn entries(&self) -> &[InterruptDescriptor] {
+        let first_ptr = self.address.to_raw() as *const InterruptDescriptor;
+        let count = self.count();
+        core::slice::from_raw_parts(first_ptr, count)
+    }
+
+    /// Gets the table entries as a mutable slice.
+    pub unsafe fn entries_mut(&self) -> &mut [InterruptDescriptor] {
+        let first_ptr = self.address.to_raw() as *mut InterruptDescriptor;
+        let count = self.count();
+        core::slice::from_raw_parts_mut(first_ptr, count)
+    }
 }
 
-/// The type of the IDT entry - either an interrupt gate, or a
+/// The type of the interrupt descrieptor - either an interrupt gate, or a
 /// trap gate.
 #[derive(Debug)]
-pub enum IDTEntryType {
+pub enum InterruptDescriptorType {
     InterruptGate,
     TrapGate,
     Invalid(u8),
 }
 
-/// Provides access to the data in an entry in an interrupt descriptor
-/// table.
+/// Provides access to the data in an interrupt descriptor.
 ///
 /// | Bytes    | Length | Purpose                                  |
 /// | ---------| -------| -----------------------------------------|
@@ -55,12 +85,10 @@ pub enum IDTEntryType {
 /// |  8 - 11  | 4      | Offset high bits (32..63)                |
 /// | 12 - 16  | 4      | Reserved                                 |
 ///
-/// For more details about the structure of the IDT see Intel 3A - 6.14.1.
-///
 /// Note that in x86-64, only interrupt gates and trap gates are
 /// supported (task gates are deprecated).
 #[repr(packed)]
-pub struct IDTEntry {
+pub struct InterruptDescriptor {
     // These fields are the same as ia32
     offset_lower: u16,
     selector: u16,
@@ -73,7 +101,7 @@ pub struct IDTEntry {
     extended_reserved: u32,
 }
 
-impl IDTEntry {
+impl InterruptDescriptor {
     const PRESENT_MASK: u8 = 0b1000_0000;
     const DPL_MASK: u8 = 0b0110_0000;
     const DPL_SHIFT: usize = 5;
@@ -88,14 +116,14 @@ impl IDTEntry {
         (self.type_and_attributes & Self::DPL_MASK) >> Self::DPL_SHIFT
     }
 
-    pub fn entry_type(&self) -> IDTEntryType {
+    pub fn entry_type(&self) -> InterruptDescriptorType {
         let gate_type = self.type_and_attributes & Self::TYPE_MASK;
 
         // Table 3-2 in Intel 3A
         match gate_type {
-            0b1110 => IDTEntryType::InterruptGate,
-            0b1111 => IDTEntryType::TrapGate,
-            other => IDTEntryType::Invalid(other),
+            0b1110 => InterruptDescriptorType::InterruptGate,
+            0b1111 => InterruptDescriptorType::TrapGate,
+            other => InterruptDescriptorType::Invalid(other),
         }
     }
 
@@ -110,9 +138,9 @@ impl IDTEntry {
     }
 }
 
-impl core::fmt::Debug for IDTEntry {
+impl core::fmt::Debug for InterruptDescriptor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("IDTEntry")
+        f.debug_struct("InterruptDescriptor")
             .field("entry_type", &self.entry_type())
             .field("present", &self.is_present())
             .field("dpl", &self.dpl())
