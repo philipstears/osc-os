@@ -59,7 +59,7 @@ pub enum ExpandDirection {
 ///
 /// Note that in x86-64, only interrupt gates and trap gates are
 /// supported (task gates are deprecated).
-#[repr(packed)]
+#[repr(C)]
 pub struct SegmentDescriptor {
     limit_low: u16,
     base_low: u16,
@@ -148,9 +148,7 @@ impl core::fmt::Debug for SegmentDescriptor {
                 .field("dpl", &self.dpl())
                 .finish()
         } else {
-            f.debug_struct("SegmentDescriptor")
-                .field("present", &false)
-                .finish()
+            f.debug_struct("SegmentDescriptor").field("present", &false).finish()
         }
     }
 }

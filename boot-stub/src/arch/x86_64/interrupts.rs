@@ -87,7 +87,7 @@ pub enum InterruptDescriptorType {
 ///
 /// Note that in x86-64, only interrupt gates and trap gates are
 /// supported (task gates are deprecated).
-#[repr(packed)]
+#[repr(C)]
 pub struct InterruptDescriptor {
     // These fields are the same as ia32
     offset_lower: u16,
