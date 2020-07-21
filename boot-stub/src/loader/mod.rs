@@ -8,7 +8,7 @@ use uefi::proto::media::file::*;
 use uefi::proto::media::fs::*;
 use uefi::CStr16;
 
-use crate::elf;
+use crate::elf::ELF64;
 
 const KERNEL_LOCATION: &'static str = "OSCOS\\KERNEL.BIN";
 
@@ -43,30 +43,18 @@ impl Loader<Ready> {
         let map_size = self.system_table.boot_services().memory_map_size();
         let _map_dest = vec![0u8; map_size << 2];
 
-        let base_ptr = self.phase_data.kernel.loaded_image.as_ptr();
-
-        let common_header_ptr = base_ptr as *const elf::FileHeaderCommon;
-        let common_header = unsafe { &*common_header_ptr };
-
-        let specific_header_ptr = unsafe {
-            base_ptr.offset(core::mem::size_of::<elf::FileHeaderCommon>() as isize)
-                as *const elf::FileHeader64
-        };
-        let specific_header = unsafe { &*specific_header_ptr };
-
-        let program_header_ptr = unsafe {
-            base_ptr.offset(specific_header.program_header_table_position as isize)
-                as *const elf::ProgramHeader64
-        };
-        let program_header = unsafe { &*program_header_ptr };
-
         print_string(
             &self.system_table,
-            format!(
-                "Would run kernel with mem map of size {}\r\nCommon Header: {:?}\r\nSpecific Header: {:?}\r\n1st Program Header: {:?}\r\n",
-                map_size, common_header, specific_header, program_header
-            ),
+            format!("Mem Map Size: {}\r\n", map_size),
         );
+
+        let kernel_elf = ELF64::open(self.phase_data.kernel.loaded_image.as_ref());
+
+        print_string(&self.system_table, format!("ELF64: {:?}\r\n", kernel_elf));
+
+        for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
+            print_string(&self.system_table, format!("PE {}: {:?}\r\n", index, entry));
+        }
 
         loop {}
     }

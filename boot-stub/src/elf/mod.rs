@@ -1,3 +1,50 @@
+#[derive(Debug)]
+pub struct ELF64<'a> {
+    base: *const u8,
+    len: usize,
+
+    header_common: &'a FileHeaderCommon,
+    header_64: &'a FileHeader64,
+}
+
+impl<'a> ELF64<'a> {
+    // TODO: fallibility
+    pub fn open(file: &'a [u8]) -> Self {
+        unsafe {
+            //
+            // TODO: validation
+            //
+            let base = file.as_ptr();
+            let len = file.len();
+
+            let header_common = base as *const FileHeaderCommon;
+            let header_64 =
+                base.add(core::mem::size_of::<FileHeaderCommon>()) as *const FileHeader64;
+
+            Self {
+                base,
+                len,
+                header_common: &*header_common,
+                header_64: &*header_64,
+            }
+        }
+    }
+
+    pub fn program_entries(&self) -> &[ProgramHeader64] {
+        unsafe {
+            let first_entry = self
+                .base
+                .add(self.header_64.program_header_table_position as usize)
+                as *const ProgramHeader64;
+
+            core::slice::from_raw_parts(
+                first_entry,
+                self.header_64.program_header_entry_count as usize,
+            )
+        }
+    }
+}
+
 // Position (32 bit)     Position (64 bit)     Value
 // 0-3                   0-3                   Magic number - 0x7F, then 'ELF' in ASCII
 // 4                     4                     1 = 32 bit, 2 = 64 bit
