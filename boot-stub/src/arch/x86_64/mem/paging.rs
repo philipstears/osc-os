@@ -1,4 +1,5 @@
-//! Provides facilities for working with page tables.
+//! Provides facilities for working with the x86-64 architecture's
+//! paging facilities.
 use super::PhysicalAddress;
 use bitflags::bitflags;
 use core::ops::{Index, IndexMut};

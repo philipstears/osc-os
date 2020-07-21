@@ -1,4 +1,5 @@
 pub mod paging;
+pub mod protection;
 
 #[derive(Copy, Clone)]
 pub struct LogicalAddress {

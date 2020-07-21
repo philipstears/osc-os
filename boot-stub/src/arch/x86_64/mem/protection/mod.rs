@@ -1,44 +1,19 @@
-use super::mem::LinearAddress;
+//! Provides facilities for working with the x86-64 architecture's
+//! protection facilities, specifically the global and local
+//! descriptor tables.
+use super::LinearAddress;
 
-#[repr(packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct GDTRValue {
-    limit: u16,
-    address: LinearAddress,
-}
+mod gdt;
+pub use gdt::*;
 
-impl GDTRValue {
-    /// Reads the current value of the GDT register.
-    pub fn read() -> Self {
-        unsafe {
-            let mut result: Self = core::mem::MaybeUninit::uninit().assume_init();
-            let result_ptr = &mut result as *mut Self;
-
-            asm!("sgdt [{0}]", in(reg) result_ptr);
-
-            result
-        }
-    }
-
-    /// Gets the linear address.
-    pub fn address(&self) -> LinearAddress {
-        self.address
-    }
-
-    /// Gets the limit.
-    pub fn limit(&self) -> u16 {
-        self.limit
-    }
-}
-
-/// The type of the GDT entry.
+/// The type of the segment descriptor.
 ///
-/// In amd64, call gates, IDT gates, LDT and TSS descriptors
+/// In x86-64, call gates, IDT gates, LDT and TSS descriptors
 /// are expanded to 16-bytes.
 ///
-/// 3.5 in Intel 3A.
+/// See 3.5 in Intel 3A.
 #[derive(Debug)]
-pub enum GDTEntryType {
+pub enum SegmentDescriptorType {
     Code {
         accessed: bool,
         read_only: bool,
@@ -64,14 +39,14 @@ pub enum GDTEntryType {
     InvalidSystem(u8),
 }
 
+/// The expansion direction of a data segment.
 #[derive(Debug)]
 pub enum ExpandDirection {
     Down,
     Up,
 }
 
-/// Provides access to the data in an entry in a global descriptor
-/// table.
+/// Provides access to the data in segment descriptor.
 ///
 /// | Bytes    | Length | Purpose                                  |
 /// | ---------| -------| -----------------------------------------|
@@ -82,12 +57,10 @@ pub enum ExpandDirection {
 /// | 6        | 1      | Limit (16..19) and attributes            |
 /// | 7        | 1      | Base (24..31)                            |
 ///
-/// For more details about the structure of the GDT see Intel 3A - 3.4.5
-///
 /// Note that in x86-64, only interrupt gates and trap gates are
 /// supported (task gates are deprecated).
 #[repr(packed)]
-pub struct GDTEntry {
+pub struct SegmentDescriptor {
     limit_low: u16,
     base_low: u16,
     base_mid: u8,
@@ -96,15 +69,25 @@ pub struct GDTEntry {
     base_high: u8,
 }
 
-impl GDTEntry {
+impl SegmentDescriptor {
     const PRESENT_MASK: u8 = 0b1000_0000;
+
     const DPL_MASK: u8 = 0b0110_0000;
     const DPL_SHIFT: usize = 5;
+
+    // The interpretation of types depends on the
+    // so-called S-Field
     const S_MASK: u8 = 0b0001_0000;
-    const EXEC_MASK: u8 = 0b0000_1000;
-    const DC_MASK: u8 = 0b0000_0100;
-    const RW_MASK: u8 = 0b0000_0010;
-    const ACCESSED_MASK: u8 = 0b0000_0001;
+
+    // If it's clear, the type is a set of flags
+    // for either a code or a data segment
+    const EXEC_MASK: u8 = 0b0000_1000; // Whether it's a code segment
+    const DC_MASK: u8 = 0b0000_0100; // Direction for Data, Conforming for Code
+    const RW_MASK: u8 = 0b0000_0010; // Readable for Data, Writable for Code
+    const ACCESSED_MASK: u8 = 0b0000_0001; // Accessed for both Data and Code
+
+    // Otherwise it's value indicating the type
+    // of the system segment
     const TYPE_MASK: u8 = 0b0000_1111;
 
     pub fn is_present(&self) -> bool {
@@ -115,7 +98,7 @@ impl GDTEntry {
         (self.type_and_attributes & Self::DPL_MASK) >> Self::DPL_SHIFT
     }
 
-    pub fn entry_type(&self) -> GDTEntryType {
+    pub fn entry_type(&self) -> SegmentDescriptorType {
         let attrs = self.type_and_attributes;
         let s_is_set = attrs & Self::S_MASK != 0;
 
@@ -125,13 +108,13 @@ impl GDTEntry {
             let accessed = attrs & Self::ACCESSED_MASK != 0;
 
             if attrs & Self::EXEC_MASK != 0 {
-                GDTEntryType::Code {
+                SegmentDescriptorType::Code {
                     accessed,
                     read_only: rw,
                     conforming: dc,
                 }
             } else {
-                GDTEntryType::Data {
+                SegmentDescriptorType::Data {
                     accessed,
                     write_enabled: rw,
                     expansion_direction: match dc {
@@ -145,27 +128,59 @@ impl GDTEntry {
 
             // Table 3-2 in Intel 3A
             match gate_type {
-                0b0000 => GDTEntryType::Upper,
-                0b0010 => GDTEntryType::LDT,
-                0b1001 => GDTEntryType::AvailableTSS,
-                0b1011 => GDTEntryType::BusyTSS,
-                0b1100 => GDTEntryType::CallGate,
-                other => GDTEntryType::InvalidSystem(other),
+                0b0000 => SegmentDescriptorType::Upper,
+                0b0010 => SegmentDescriptorType::LDT,
+                0b1001 => SegmentDescriptorType::AvailableTSS,
+                0b1011 => SegmentDescriptorType::BusyTSS,
+                0b1100 => SegmentDescriptorType::CallGate,
+                other => SegmentDescriptorType::InvalidSystem(other),
             }
         }
     }
 }
 
-impl core::fmt::Debug for GDTEntry {
+impl core::fmt::Debug for SegmentDescriptor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_present() {
-            f.debug_struct("GDTEntry")
+            f.debug_struct("SegmentDescriptor")
                 .field("entry_type", &self.entry_type())
                 .field("present", &true)
                 .field("dpl", &self.dpl())
                 .finish()
         } else {
-            f.debug_struct("GDTEntry").field("present", &false).finish()
+            f.debug_struct("SegmentDescriptor")
+                .field("present", &false)
+                .finish()
         }
+    }
+}
+
+#[repr(packed)]
+#[derive(Debug, Copy, Clone)]
+pub struct SegmentDescriptorTableRef {
+    limit: u16,
+    address: LinearAddress,
+}
+
+impl SegmentDescriptorTableRef {
+    /// Gets the linear address.
+    pub fn address(&self) -> LinearAddress {
+        self.address
+    }
+
+    /// Gets the limit.
+    pub fn limit(&self) -> u16 {
+        self.limit
+    }
+
+    /// Gets the count of entries.
+    pub fn count(&self) -> usize {
+        (self.limit as usize + 1) / core::mem::size_of::<SegmentDescriptor>()
+    }
+
+    pub unsafe fn entries(&self) -> &[SegmentDescriptor] {
+        let first_ptr = self.address.to_raw() as *const SegmentDescriptor;
+        let count = self.count();
+        core::slice::from_raw_parts(first_ptr, count)
     }
 }

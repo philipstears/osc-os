@@ -20,9 +20,9 @@ mod elf;
 mod loader;
 use loader::*;
 
-use arch::x86_64::gdt::*;
 use arch::x86_64::interrupts::*;
 use arch::x86_64::mem::paging::*;
+use arch::x86_64::mem::protection::*;
 use arch::x86_64::mem::*;
 use arch::x86_64::serial;
 
@@ -73,19 +73,15 @@ pub extern "efiapi" fn efi_main(image_handle: Handle, system_table: SystemTable<
         idtr_ptr = unsafe { idtr_ptr.offset(1) };
     }
 
-    let gdtr_value = GDTRValue::read();
-    let mut gdtr_ptr = gdtr_value.address().to_raw() as *const GDTEntry;
-    let gdte_count = (usize::from(gdtr_value.limit()) + 1) / core::mem::size_of::<GDTEntry>();
+    let gdt_ref = GDTRegister::read();
 
     writeln!(com1, "CS: {:?}", SegmentSelector::from_cs_register()).unwrap();
-    writeln!(com1, "GDTR: {:?}, Count: {}", gdtr_value, gdte_count).unwrap();
+    writeln!(com1, "GDTR: {:?}, Count: {}", gdt_ref, gdt_ref.count()).unwrap();
 
-    for index in 0..gdte_count {
-        let gdtr_ref = unsafe { &*gdtr_ptr };
-
-        writeln!(com1, "{}: {:?}", index, gdtr_ref).unwrap();
-
-        gdtr_ptr = unsafe { gdtr_ptr.offset(1) };
+    unsafe {
+        for (index, entry) in gdt_ref.entries().iter().enumerate() {
+            writeln!(com1, "{}: {:?}", index, entry).unwrap();
+        }
     }
 
     Loader::new(image_handle, system_table).run();
