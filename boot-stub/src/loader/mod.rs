@@ -6,6 +6,7 @@ use uefi::prelude::*;
 use uefi::proto::loaded_image::*;
 use uefi::proto::media::file::*;
 use uefi::proto::media::fs::*;
+use uefi::table::boot::*;
 use uefi::CStr16;
 
 use crate::elf::ELF64;
@@ -39,22 +40,35 @@ pub struct Loader<Phase> {
 
 impl Loader<Ready> {
     fn transfer_to_kernel(self) -> ! {
-        // Get the estimated map size
-        let map_size = self.system_table.boot_services().memory_map_size();
-        let _map_dest = vec![0u8; map_size << 2];
-
-        print_string(
-            &self.system_table,
-            format!("Mem Map Size: {}\r\n", map_size),
-        );
-
         let kernel_elf = ELF64::open(self.phase_data.kernel.loaded_image.as_ref());
 
-        print_string(&self.system_table, format!("ELF64: {:?}\r\n", kernel_elf));
+        print_string(&self.system_table, format!("Kernel: {:#?}\r\n", kernel_elf));
 
         for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
-            print_string(&self.system_table, format!("PE {}: {:?}\r\n", index, entry));
+            print_string(&self.system_table, format!("PE {}: {:#?}\r\n", index, entry));
         }
+
+        // Get the estimated map size
+        let map_info = self.system_table.boot_services().memory_map_params();
+        let map_entry_count = map_info.map_size / map_info.entry_size;
+
+        print_string(&self.system_table, format!("Mem Map Info: {:?}\r\n", map_info));
+        print_string(&self.system_table, format!("Mem Map Entry Count: {}\r\n", map_entry_count));
+
+        let mut map_dest = vec![0u8; map_info.map_size << 2];
+
+        let (_mem_map_key, mem_map_iter) =
+            self.system_table.boot_services().memory_map(map_dest.as_mut()).unwrap_success();
+
+        // print_string(&self.system_table, format!("Mem Map Iter: {:?}\r\n", mem_map_iter));
+
+        // We're ready to switch to the kernel
+        let mut map_dest = vec![0u8; map_info.map_size << 2];
+
+        let (runtime_table, mem_map_iter) = self
+            .system_table
+            .exit_boot_services(self.image_handle, map_dest.as_mut())
+            .unwrap_success();
 
         loop {}
     }
