@@ -43,6 +43,13 @@ impl<'a> ELF64<'a> {
             )
         }
     }
+
+    pub fn program_entry_data(&self, header: &ProgramHeader64) -> &[u8] {
+        unsafe {
+            let first_byte = self.base.add(header.offset as usize);
+            core::slice::from_raw_parts(first_byte, header.size_in_file as usize)
+        }
+    }
 }
 
 // Position (32 bit)     Position (64 bit)     Value

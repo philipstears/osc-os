@@ -43,17 +43,82 @@ impl Loader<Ready> {
     fn transfer_to_kernel(self) -> ! {
         let kernel_elf = ELF64::open(self.phase_data.kernel.loaded_image.as_ref());
 
-        print_string(&self.system_table, format!("Kernel: {:#?}\r\n", kernel_elf));
+        print_string(&self.system_table, format!("Kernel: {:?}\r\n", kernel_elf));
 
         let mut load_entries =
             kernel_elf.program_entries().iter().filter(|pe| pe.segment_type() == SegmentType::Load);
 
-        let first = load_entries.next().unwrap();
-        let first_vma = first.vma;
-        let last_vma = first_vma + first.size_in_memory;
+        print_string(
+            &self.system_table,
+            format!(
+                "{:10}\t{:16}\t{:16}\t{:10}\t{:10}\t{:<10}\t{:16}\r\n",
+                "Idx",
+                "VMA",
+                "VMA Aligned",
+                "VMA Offset",
+                "Page Count",
+                "Zero Bytes",
+                "Physical Address"
+            ),
+        );
+
+        let bs = self.system_table.boot_services();
+        let mut required_mappings = Vec::with_capacity(4);
+
+        for (index, entry) in load_entries.enumerate() {
+            let vma = entry.vma as usize;
+            let vma_offset = vma & 0xFFF;
+            let vma_page_aligned = vma & !0xFFF;
+            let vma_page_count = (entry.size_in_memory as usize + vma_offset + 0xFFF) >> 12;
+            let zero_bytes = (entry.size_in_memory - entry.size_in_file) as usize;
+
+            let target_raw = bs
+                .allocate_pages(
+                    AllocateType::AnyPages,
+                    MemoryType::LOADER_DATA,
+                    vma_page_count as usize,
+                )
+                .unwrap_success();
+
+            print_string(
+                &self.system_table,
+                format!(
+                    "{:<10}\t{:<016x}\t{:<016x}\t{:<10}\t{:<10}\t{:<10}\t{:<016x}\r\n",
+                    index,
+                    vma,
+                    vma_page_aligned,
+                    vma_offset,
+                    vma_page_count,
+                    zero_bytes,
+                    target_raw
+                ),
+            );
+
+            let target = unsafe {
+                core::slice::from_raw_parts_mut(target_raw as *mut u8, vma_page_count << 12)
+            };
+
+            let data = kernel_elf.program_entry_data(entry);
+
+            &mut target[vma_offset..(vma_offset + entry.size_in_file as usize)]
+                .copy_from_slice(data);
+
+            let first_zero_byte = vma_offset + entry.size_in_file as usize;
+            let last_zero_byte_excl = first_zero_byte + zero_bytes;
+
+            for index in first_zero_byte..last_zero_byte_excl {
+                target[index] = 0;
+            }
+
+            required_mappings.push((vma, target_raw));
+        }
+
+        // let first = load_entries.next().unwrap();
+        // let first_vma = first.vma;
+        // let last_vma = first_vma + first.size_in_memory;
 
         for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
-            print_string(&self.system_table, format!("PE {}: {:#?}\r\n", index, entry));
+            print_string(&self.system_table, format!("PE {}: {:?}\r\n", index, entry));
         }
 
         // Get the estimated map size
@@ -118,31 +183,31 @@ impl Loader<Prepare> {
             Err(error) => {
                 match error {
                     BootError::RetrieveImageInfoFailed(Status(status_code)) => self.print_string(
-                        format!("Failed to get boot image information ({:#x})\r\n", status_code),
+                        format!("Failed to get boot image information ({:x})\r\n", status_code),
                     ),
 
                     BootError::RetrieveSimpleFileSystemFailed(Status(status_code)) => self
                         .print_string(format!(
-                            "Failed to get access to boot file system ({:#x})\r\n",
+                            "Failed to get access to boot file system ({:x})\r\n",
                             status_code
                         )),
 
                     BootError::RetrieveVolumeFailed(Status(status_code)) => self.print_string(
-                        format!("Failed to get access to boot volume ({:#x})\r\n", status_code),
+                        format!("Failed to get access to boot volume ({:x})\r\n", status_code),
                     ),
 
                     BootError::OpenKernelFailed(Status(status_code)) => self.print_string(format!(
-                        "Failed to get open the kernel file for reading ({:#x})\r\n",
+                        "Failed to get open the kernel file for reading ({:x})\r\n",
                         status_code
                     )),
 
                     BootError::StatKernelFailed(Status(status_code)) => self.print_string(format!(
-                        "Failed to get read information about the kernel file ({:#x})\r\n",
+                        "Failed to get read information about the kernel file ({:x})\r\n",
                         status_code
                     )),
 
                     BootError::ReadKernelFailed(Status(status_code)) => self.print_string(format!(
-                        "Failed to read the kernel file into memory ({:#x})\r\n",
+                        "Failed to read the kernel file into memory ({:x})\r\n",
                         status_code
                     )),
                 }
