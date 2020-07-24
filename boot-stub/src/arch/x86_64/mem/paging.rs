@@ -46,6 +46,7 @@ bitflags! {
 /// | 52 - 62      | 11     | Unused/Available        |
 /// | 63           |  1     | No Execute Bit          |
 #[repr(transparent)]
+#[derive(Copy, Clone)]
 pub struct PageTableEntry(u64);
 
 impl PageTableEntry {
@@ -70,6 +71,10 @@ impl PageTableEntry {
 
     const PHYSICAL_ADDRESS_MASK: u64 = 0x000F_FFFF_FFFF_F000;
 
+    pub fn new() -> PageTableEntry {
+        Self(0)
+    }
+
     pub fn flags(&self) -> PageTableEntryFlags {
         let flags = self.0 & Self::FLAGS_MASK;
 
@@ -78,11 +83,28 @@ impl PageTableEntry {
         unsafe { PageTableEntryFlags::from_bits_unchecked(flags) }
     }
 
+    pub fn with_flags(&self, flags: PageTableEntryFlags) -> PageTableEntry {
+        Self((self.0 & !Self::FLAGS_MASK) | (flags.bits() & Self::FLAGS_MASK))
+    }
+
     pub fn physical_address(&self) -> PhysicalAddress {
         // NOTE: The physical address already has the lower 12-bits
         // set to zero due to the way the page table entry is laid out.
         let physical_address = self.0 & Self::PHYSICAL_ADDRESS_MASK;
         unsafe { PhysicalAddress::from_raw_unchecked(physical_address) }
+    }
+
+    pub fn with_physical_address(&self, address: PhysicalAddress) -> PageTableEntry {
+        Self(
+            (self.0 & !Self::PHYSICAL_ADDRESS_MASK)
+                | (address.to_raw() & Self::PHYSICAL_ADDRESS_MASK),
+        )
+    }
+}
+
+impl Default for PageTableEntry {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

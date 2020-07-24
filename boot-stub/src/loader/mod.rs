@@ -9,6 +9,9 @@ use uefi::proto::media::fs::*;
 use uefi::table::boot::*;
 use uefi::CStr16;
 
+use crate::arch::x86_64::mem::paging::*;
+use crate::arch::x86_64::mem::*;
+use crate::arch::x86_64::registers::*;
 use crate::elf::SegmentType;
 use crate::elf::ELF64;
 
@@ -62,8 +65,10 @@ impl Loader<Ready> {
             ),
         );
 
+        // We're about to modify the page table
+        let pml4 = CR3Value::read().pml4_address().to_raw() as *mut PageTable;
+
         let bs = self.system_table.boot_services();
-        let mut required_mappings = Vec::with_capacity(4);
 
         for (index, entry) in load_entries.enumerate() {
             let vma = entry.vma as usize;
@@ -110,7 +115,16 @@ impl Loader<Ready> {
                 target[index] = 0;
             }
 
-            required_mappings.push((vma, target_raw));
+            unsafe {
+                for page_index in 0..vma_page_count {
+                    ensure_mapped(
+                        &self.system_table,
+                        pml4,
+                        (vma_page_aligned + (page_index << 12)) as u64,
+                        target_raw + ((page_index as u64) << 12),
+                    );
+                }
+            }
         }
 
         // let first = load_entries.next().unwrap();
@@ -296,4 +310,61 @@ fn print_string(st: &SystemTable<Boot>, string: impl AsRef<str>) {
             .output_string(unsafe { &CStr16::from_u16_with_nul_unchecked(&buf[..chunk.len()]) })
             .unwrap_success();
     }
+}
+
+unsafe fn ensure_mapped(
+    st: &SystemTable<Boot>,
+    pml4: *mut PageTable,
+    virtual_address: u64,
+    physical_address: u64,
+) {
+    let la = unsafe { LinearAddress::from_raw_unchecked(virtual_address) };
+
+    ensure_mapped_l4(st, pml4, la, physical_address);
+}
+
+unsafe fn ensure_mapped_l4(
+    st: &SystemTable<Boot>,
+    pml4: *mut PageTable,
+    la: LinearAddress,
+    pa: u64,
+) {
+    let bs = st.boot_services();
+
+    let pt: &mut PageTable = &mut *pml4;
+    let entry = &mut pt[la.level1().into()];
+    let (existed, next_table) = ensure_page_table(bs, entry);
+
+    if existed {
+        print_string(st, format!("Created L3 PT for {:?} because it didn't already exist\r\n", la));
+    } else {
+        print_string(
+            st,
+            format!("Did not create L3 PT for {:?} because it already exists\r\n", la),
+        );
+    }
+}
+
+unsafe fn ensure_page_table(
+    bs: &BootServices,
+    parent_entry: &mut PageTableEntry,
+) -> (bool, *mut PageTable) {
+    if parent_entry.flags().contains(PageTableEntryFlags::PRESENT) {
+        return (true, parent_entry.physical_address().to_raw() as *mut PageTable);
+    }
+
+    // Create the new page table
+    let next_page_table =
+        bs.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, 1).unwrap_success();
+
+    bs.memset(next_page_table as *mut u8, 0x1000, 0);
+
+    // Update the parent table with the entry
+    *parent_entry = PageTableEntry::new();
+    // *parent_entry =
+    //     parent_entry
+    //     .with_flags(PageTableEntryFlags::PRESENT | PageTableEntryFlags::GLOBAL)
+    //     .with_physical_address(PhysicalAddress::from_raw_unchecked(next_page_table));
+
+    (false, next_page_table as *mut PageTable)
 }
