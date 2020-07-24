@@ -9,6 +9,7 @@ use uefi::proto::media::fs::*;
 use uefi::table::boot::*;
 use uefi::CStr16;
 
+use crate::elf::SegmentType;
 use crate::elf::ELF64;
 
 const KERNEL_LOCATION: &'static str = "OSCOS\\KERNEL.BIN";
@@ -43,6 +44,13 @@ impl Loader<Ready> {
         let kernel_elf = ELF64::open(self.phase_data.kernel.loaded_image.as_ref());
 
         print_string(&self.system_table, format!("Kernel: {:#?}\r\n", kernel_elf));
+
+        let mut load_entries =
+            kernel_elf.program_entries().iter().filter(|pe| pe.segment_type() == SegmentType::Load);
+
+        let first = load_entries.next().unwrap();
+        let first_vma = first.vma;
+        let last_vma = first_vma + first.size_in_memory;
 
         for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
             print_string(&self.system_table, format!("PE {}: {:#?}\r\n", index, entry));
@@ -99,7 +107,9 @@ impl Loader<Prepare> {
                 let ready = Loader {
                     image_handle: self.image_handle,
                     system_table: self.system_table,
-                    phase_data: Ready { kernel },
+                    phase_data: Ready {
+                        kernel,
+                    },
                 };
 
                 ready.transfer_to_kernel();
@@ -107,12 +117,9 @@ impl Loader<Prepare> {
 
             Err(error) => {
                 match error {
-                    BootError::RetrieveImageInfoFailed(Status(status_code)) => {
-                        self.print_string(format!(
-                            "Failed to get boot image information ({:#x})\r\n",
-                            status_code
-                        ))
-                    }
+                    BootError::RetrieveImageInfoFailed(Status(status_code)) => self.print_string(
+                        format!("Failed to get boot image information ({:#x})\r\n", status_code),
+                    ),
 
                     BootError::RetrieveSimpleFileSystemFailed(Status(status_code)) => self
                         .print_string(format!(
@@ -120,12 +127,9 @@ impl Loader<Prepare> {
                             status_code
                         )),
 
-                    BootError::RetrieveVolumeFailed(Status(status_code)) => {
-                        self.print_string(format!(
-                            "Failed to get access to boot volume ({:#x})\r\n",
-                            status_code
-                        ))
-                    }
+                    BootError::RetrieveVolumeFailed(Status(status_code)) => self.print_string(
+                        format!("Failed to get access to boot volume ({:#x})\r\n", status_code),
+                    ),
 
                     BootError::OpenKernelFailed(Status(status_code)) => self.print_string(format!(
                         "Failed to get open the kernel file for reading ({:#x})\r\n",
@@ -195,7 +199,9 @@ impl Loader<Prepare> {
             .warning_as_error()
             .map_err(|err| BootError::ReadKernelFailed(err.status()))?;
 
-        let kernel = PreparedKernel { loaded_image: data };
+        let kernel = PreparedKernel {
+            loaded_image: data,
+        };
 
         Ok(kernel)
     }

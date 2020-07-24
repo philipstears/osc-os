@@ -332,7 +332,7 @@ impl core::fmt::Debug for ProgramHeader64 {
 /// 0x00000005 	PT_SHLIB 	reserved
 /// 0x00000006 	PT_PHDR 	segment containing program header table itself
 /// 0x00000007 	PT_TLS 	    Thread-Local Storage template
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum SegmentType {
     Null,
     Load,
