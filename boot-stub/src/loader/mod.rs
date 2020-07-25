@@ -48,6 +48,10 @@ impl Loader<Ready> {
 
         print_string(&self.system_table, format!("Kernel: {:?}\r\n", kernel_elf));
 
+        for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
+            print_string(&self.system_table, format!("PE {}: {:?}\r\n", index, entry));
+        }
+
         let mut load_entries =
             kernel_elf.program_entries().iter().filter(|pe| pe.segment_type() == SegmentType::Load);
 
@@ -117,22 +121,23 @@ impl Loader<Ready> {
 
             unsafe {
                 for page_index in 0..vma_page_count {
-                    ensure_mapped(
+                    let vma_address = (vma_page_aligned + (page_index << 12)) as u64;
+                    let pml4_address =
+                        LinearAddress::from_raw_unchecked(CR3Value::read().pml4_address().to_raw());
+                    let entry = resolve_l4(&*pml4, unsafe { pml4_address });
+                    print_string(
                         &self.system_table,
-                        pml4,
-                        (vma_page_aligned + (page_index << 12)) as u64,
-                        target_raw + ((page_index as u64) << 12),
+                        format!("PML4T ({:?}) entry: {:?}\r\n", pml4_address, entry),
                     );
+                    //
+                    //ensure_mapped(
+                    //    &self.system_table,
+                    //    pml4,
+                    //    (vma_page_aligned + (page_index << 12)) as u64,
+                    //    target_raw + ((page_index as u64) << 12),
+                    //);
                 }
             }
-        }
-
-        // let first = load_entries.next().unwrap();
-        // let first_vma = first.vma;
-        // let last_vma = first_vma + first.size_in_memory;
-
-        for (index, entry) in kernel_elf.program_entries().iter().enumerate() {
-            print_string(&self.system_table, format!("PE {}: {:?}\r\n", index, entry));
         }
 
         // Get the estimated map size
@@ -333,7 +338,7 @@ unsafe fn ensure_mapped_l4(
 
     let pt: &mut PageTable = &mut *pml4;
     let entry = &mut pt[la.level1().into()];
-    let (existed, next_table) = ensure_page_table(bs, entry);
+    let (existed, next_table) = ensure_page_table(st, entry);
 
     if existed {
         print_string(st, format!("Created L3 PT for {:?} because it didn't already exist\r\n", la));
@@ -346,18 +351,25 @@ unsafe fn ensure_mapped_l4(
 }
 
 unsafe fn ensure_page_table(
-    bs: &BootServices,
+    st: &SystemTable<Boot>,
     parent_entry: &mut PageTableEntry,
 ) -> (bool, *mut PageTable) {
     if parent_entry.flags().contains(PageTableEntryFlags::PRESENT) {
         return (true, parent_entry.physical_address().to_raw() as *mut PageTable);
     }
 
+    let bs = st.boot_services();
+
     // Create the new page table
     let next_page_table =
         bs.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, 1).unwrap_success();
 
     bs.memset(next_page_table as *mut u8, 0x1000, 0);
+
+    print_string(
+        st,
+        format!("Creating entry at {:016x}\r\n", parent_entry as *const PageTableEntry as u64),
+    );
 
     // Update the parent table with the entry
     *parent_entry = PageTableEntry::new();
@@ -367,4 +379,52 @@ unsafe fn ensure_page_table(
     //     .with_physical_address(PhysicalAddress::from_raw_unchecked(next_page_table));
 
     (false, next_page_table as *mut PageTable)
+}
+
+unsafe fn resolve_l4(pml4: &PageTable, la: LinearAddress) -> Option<PageTableEntry> {
+    let entry = &pml4[la.level4().into()];
+
+    if !entry.flags().contains(PageTableEntryFlags::PRESENT) {
+        return None;
+    }
+
+    let pml3 = &*(entry.physical_address().to_raw() as *const PageTable);
+
+    resolve_l3(pml3, la)
+}
+
+unsafe fn resolve_l3(pml3: &PageTable, la: LinearAddress) -> Option<PageTableEntry> {
+    let entry = &pml3[la.level3().into()];
+
+    if !entry.flags().contains(PageTableEntryFlags::PRESENT) {
+        return None;
+    }
+
+    let pml2 = &*(entry.physical_address().to_raw() as *const PageTable);
+
+    resolve_l2(pml2, la)
+}
+
+unsafe fn resolve_l2(pml2: &PageTable, la: LinearAddress) -> Option<PageTableEntry> {
+    let entry = &pml2[la.level2().into()];
+
+    if !entry.flags().contains(PageTableEntryFlags::PRESENT) {
+        return None;
+    }
+
+    return Some(*entry);
+
+    let pml1 = &*(entry.physical_address().to_raw() as *const PageTable);
+
+    resolve_l1(pml1, la)
+}
+
+unsafe fn resolve_l1(pml1: &PageTable, la: LinearAddress) -> Option<PageTableEntry> {
+    let entry = &pml1[la.level1().into()];
+
+    if !entry.flags().contains(PageTableEntryFlags::PRESENT) {
+        return None;
+    }
+
+    Some(*entry)
 }
