@@ -69,10 +69,8 @@ impl Loader<Ready> {
             ),
         );
 
-        // We're about to modify the page table
-        let pml4 = CR3Value::read().pml4_address().to_raw() as *mut PageTable;
-
         let bs = self.system_table.boot_services();
+        let sections = Vec::with_capacity(4);
 
         for (index, entry) in load_entries.enumerate() {
             let vma = entry.vma as usize;
@@ -119,26 +117,11 @@ impl Loader<Ready> {
                 target[index] = 0;
             }
 
-            unsafe {
-                for page_index in 0..vma_page_count {
-                    let vma_address = (vma_page_aligned + (page_index << 12)) as u64;
-                    let pml4_address =
-                        LinearAddress::from_raw_unchecked(CR3Value::read().pml4_address().to_raw());
-                    let entry = resolve_l4(&*pml4, unsafe { pml4_address });
-                    print_string(
-                        &self.system_table,
-                        format!("PML4T ({:?}) entry: {:?}\r\n", pml4_address, entry),
-                    );
-                    //
-                    //ensure_mapped(
-                    //    &self.system_table,
-                    //    pml4,
-                    //    (vma_page_aligned + (page_index << 12)) as u64,
-                    //    target_raw + ((page_index as u64) << 12),
-                    //);
-                }
-            }
+            sections.push((vma_page_aligned, vma_page_count, target_raw));
         }
+
+        // Build a new set of page tables
+        let pml4 = CR3Value::read().pml4_address().to_raw() as *mut PageTable;
 
         // Get the estimated map size
         let map_info = self.system_table.boot_services().memory_map_params();
